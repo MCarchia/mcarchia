@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Client, Contract, Address } from '../types';
 import { ContractType } from '../types';
-import { PencilIcon, TrashIcon, PlusIcon, LightningBoltIcon, DeviceMobileIcon, UserGroupIcon, ChevronUpIcon, ChevronDownIcon, FireIcon, CalendarIcon, DocumentDuplicateIcon } from './Icons';
+import { PencilIcon, TrashIcon, PlusIcon, LightningBoltIcon, DeviceMobileIcon, UserGroupIcon, ChevronUpIcon, ChevronDownIcon, FireIcon, CalendarIcon, DocumentDuplicateIcon, ExclamationIcon } from './Icons';
 
 // --- VISTA GESTIONE CLIENTI ---
 interface ClientListViewProps {
@@ -34,7 +34,7 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, contrac
   return (
     <div className="animate-fade-in">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-slate-700">Elenco Clienti</h1>
+        <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Elenco Clienti</h1>
         <button
           onClick={onAdd}
           className="flex items-center justify-center bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105"
@@ -43,11 +43,11 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, contrac
           Nuovo Cliente
         </button>
       </div>
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
         <div className="overflow-x-auto">
            {clients.length > 0 ? (
-            <table className="w-full text-sm text-left text-slate-500">
-                <thead className="text-xs text-slate-700 uppercase bg-slate-50">
+            <table className="w-full text-sm text-left text-slate-500 dark:text-slate-400">
+                <thead className="text-xs text-slate-700 dark:text-slate-300 uppercase bg-slate-50 dark:bg-slate-700/50">
                 <tr>
                     <th scope="col" className="px-6 py-3">Cliente</th>
                     <th scope="col" className="px-6 py-3">Contatti</th>
@@ -60,32 +60,32 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, contrac
                 {sortedClients.map(client => {
                     const contractCount = contracts.filter(c => c.clientId === client.id).length;
                     return (
-                        <tr key={client.id} className="bg-white border-b hover:bg-slate-50">
-                            <td className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap align-top">
+                        <tr key={client.id} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                            <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap align-top">
                                <div className="font-semibold">{`${client.firstName} ${client.lastName}`}</div>
-                               {client.codiceFiscale && <div className="text-xs text-slate-500 font-mono mt-1">{client.codiceFiscale}</div>}
-                               <div className="flex items-center text-xs text-slate-400 mt-2">
+                               {client.codiceFiscale && <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1">{client.codiceFiscale}</div>}
+                               <div className="flex items-center text-xs text-slate-400 dark:text-slate-500 mt-2">
                                  <CalendarIcon className="h-4 w-4 mr-1.5" />
                                  <span>Cliente dal: {new Date(client.createdAt).toLocaleDateString('it-IT')}</span>
                                </div>
                             </td>
                             <td className="px-6 py-4 align-top">
                                 <div>{client.email}</div>
-                                <div className="text-xs text-slate-400">{client.mobilePhone}</div>
+                                <div className="text-xs text-slate-400 dark:text-slate-500">{client.mobilePhone}</div>
                             </td>
                              <td className="px-6 py-4 align-top text-xs">
-                                <div className="text-slate-600"><span className="font-semibold">Sede Legale:</span> {formatAddress(client.legalAddress)}</div>
-                                <div className="text-slate-600 mt-1"><span className="font-semibold">Residenza:</span> {formatAddress(client.residentialAddress)}</div>
+                                <div className="text-slate-600 dark:text-slate-300"><span className="font-semibold">Sede Legale:</span> {formatAddress(client.legalAddress)}</div>
+                                <div className="text-slate-600 dark:text-slate-300 mt-1"><span className="font-semibold">Residenza:</span> {formatAddress(client.residentialAddress)}</div>
                             </td>
                             <td className="px-6 py-4 align-top text-center">
                                 <div className="flex items-center justify-center space-x-2">
                                     <DocumentDuplicateIcon className="h-4 w-4 text-slate-400" />
-                                    <span className="font-medium text-slate-700">{contractCount}</span>
+                                    <span className="font-medium text-slate-700 dark:text-slate-200">{contractCount}</span>
                                 </div>
                             </td>
                             <td className="px-6 py-4 text-right align-top">
                                 <div className="flex items-center justify-end space-x-2">
-                                    <button onClick={() => onEdit(client)} className="p-2 text-sky-600 rounded-full hover:bg-sky-100 transition-colors" title="Modifica cliente" aria-label={`Modifica cliente ${client.firstName} ${client.lastName}`}>
+                                    <button onClick={() => onEdit(client)} className="p-2 text-sky-600 rounded-full hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors" title="Modifica cliente" aria-label={`Modifica cliente ${client.firstName} ${client.lastName}`}>
                                         <PencilIcon className="h-5 w-5" />
                                     </button>
                                     <button onClick={() => onDelete(client.id)} className="p-2 text-red-600 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors" title="Elimina cliente" aria-label={`Elimina cliente ${client.firstName} ${client.lastName}`}>
@@ -101,8 +101,8 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, contrac
             ) : (
                 <div className="text-center py-20 px-6">
                     <UserGroupIcon className="mx-auto h-12 w-12 text-slate-400" />
-                    <h3 className="mt-2 text-lg font-medium text-slate-800">Nessun cliente trovato</h3>
-                    <p className="mt-1 text-sm text-slate-500">Inizia aggiungendo il tuo primo cliente.</p>
+                    <h3 className="mt-2 text-lg font-medium text-slate-800 dark:text-slate-100">Nessun cliente trovato</h3>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Inizia aggiungendo il tuo primo cliente.</p>
                 </div>
             )}
         </div>
@@ -199,15 +199,15 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
       return <span className="w-4 h-4" />;
     }
     if (sortConfig.direction === 'ascending') {
-      return <ChevronUpIcon className="h-4 w-4 text-slate-600" />;
+      return <ChevronUpIcon className="h-4 w-4 text-slate-600 dark:text-slate-400" />;
     }
-    return <ChevronDownIcon className="h-4 w-4 text-slate-600" />;
+    return <ChevronDownIcon className="h-4 w-4 text-slate-600 dark:text-slate-400" />;
   };
   
   return (
     <div className="animate-fade-in">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-slate-700">Gestione Contratti</h1>
+        <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Gestione Contratti</h1>
         <button
           onClick={onAdd}
           disabled={clients.length === 0}
@@ -218,18 +218,18 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
           Nuovo Contratto
         </button>
       </div>
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
         {availableProviders.length > 0 && (
-          <div className="p-4 border-b border-slate-200 bg-slate-50/50">
+          <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20">
             <div className="flex items-center space-x-3 max-w-sm">
-              <label htmlFor="provider-filter" className="text-sm font-medium text-slate-600 flex-shrink-0">
+              <label htmlFor="provider-filter" className="text-sm font-medium text-slate-600 dark:text-slate-300 flex-shrink-0">
                 Filtra fornitore:
               </label>
               <select
                 id="provider-filter"
                 value={selectedProvider}
                 onChange={(e) => onProviderChange(e.target.value)}
-                className="block w-full px-3 py-2 border border-slate-300 bg-white focus:outline-none focus:ring-sky-500 focus:border-sky-500 text-sm rounded-md"
+                className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 focus:outline-none focus:ring-sky-500 focus:border-sky-500 text-sm rounded-md"
               >
                 <option value="all">Tutti i fornitori</option>
                 {[...availableProviders].sort((a, b) => a.localeCompare(b)).map((provider) => (
@@ -243,8 +243,8 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
         )}
         <div className="overflow-x-auto">
           {sortedContracts.length > 0 ? (
-            <table className="w-full text-sm text-left text-slate-500">
-              <thead className="text-xs text-slate-700 uppercase bg-slate-50">
+            <table className="w-full text-sm text-left text-slate-500 dark:text-slate-400">
+              <thead className="text-xs text-slate-700 dark:text-slate-300 uppercase bg-slate-50 dark:bg-slate-700/50">
                 <tr>
                   <th scope="col" className="px-6 py-3">Tipo</th>
                   <th scope="col" className="px-6 py-3">Cliente</th>
@@ -270,19 +270,21 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                   const expiring = isExpiringSoon(contract.endDate);
                   const expired = contract.endDate ? new Date(contract.endDate) < new Date(new Date().toDateString()) : false;
 
-                  let dateColor = 'text-slate-400';
-                  if (contract.endDate) {
+                  let dateColor;
+                   if (contract.endDate) {
                     if (expired) {
-                      dateColor = 'text-red-600';
+                      dateColor = 'text-red-600 dark:text-red-500';
                     } else if (expiring) {
-                      dateColor = 'text-amber-600';
+                      dateColor = 'text-amber-600 dark:text-amber-500';
                     } else {
-                      dateColor = 'text-slate-700';
+                      dateColor = 'text-slate-700 dark:text-slate-300';
                     }
+                  } else {
+                      dateColor = 'text-slate-400 dark:text-slate-500';
                   }
 
                   return (
-                    <tr key={contract.id} className={`bg-white border-b hover:bg-slate-50 transition-colors ${expiring ? 'bg-amber-50' : ''}`}>
+                    <tr key={contract.id} className={`border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${expiring ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-white dark:bg-slate-800'}`}>
                       <td className="px-6 py-4 align-top">
                         {contract.type === ContractType.Electricity ? (
                           <LightningBoltIcon className="h-5 w-5 text-yellow-500" title="Energia Elettrica" />
@@ -292,21 +294,24 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                           <DeviceMobileIcon className="h-5 w-5 text-sky-500" title="Telefonia" />
                         )}
                       </td>
-                      <td className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap align-top">{getClientName(contract.clientId)}</td>
+                      <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap align-top">{getClientName(contract.clientId)}</td>
                       <td className="px-6 py-4 align-top">{contract.provider}</td>
                       <td className="px-6 py-4 text-xs align-top">{formatAddress(contract.supplyAddress)}</td>
-                      <td className="px-6 py-4 align-top font-semibold text-slate-700">
+                      <td className="px-6 py-4 align-top font-semibold text-slate-700 dark:text-slate-200">
                         {contract.commission != null ? contract.commission.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' }) : 'N/D'}
                       </td>
                       <td className={`px-6 py-4 font-semibold align-top ${dateColor}`}>
-                        {contract.endDate ? new Date(contract.endDate).toLocaleDateString('it-IT') : 'N/D'}
+                        <div className="flex items-center">
+                          {expiring && <ExclamationIcon className="h-4 w-4 text-amber-500 mr-1.5 flex-shrink-0" />}
+                          <span>{contract.endDate ? new Date(contract.endDate).toLocaleDateString('it-IT') : 'N/D'}</span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-right align-top">
                           <div className="flex items-center justify-end space-x-2">
-                            <button onClick={() => onEdit(contract)} className="p-2 text-sky-600 rounded-full hover:bg-sky-100 transition-colors" title="Modifica contratto" aria-label={`Modifica contratto ${contract.provider} per ${getClientName(contract.clientId)}`}>
+                            <button onClick={() => onEdit(contract)} className="p-2 text-sky-600 rounded-full hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors" title="Modifica contratto" aria-label={`Modifica contratto ${contract.provider} per ${getClientName(contract.clientId)}`}>
                                 <PencilIcon className="h-5 w-5" />
                             </button>
-                            <button onClick={() => onDelete(contract.id)} className="p-2 text-red-600 rounded-full hover:bg-red-100 transition-colors" title="Elimina contratto" aria-label={`Elimina contratto ${contract.provider} per ${getClientName(contract.clientId)}`}>
+                            <button onClick={() => onDelete(contract.id)} className="p-2 text-red-600 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors" title="Elimina contratto" aria-label={`Elimina contratto ${contract.provider} per ${getClientName(contract.clientId)}`}>
                                 <TrashIcon className="h-5 w-5" />
                             </button>
                         </div>
@@ -321,8 +326,8 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
               <svg className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              <h3 className="mt-2 text-lg font-medium text-slate-800">Nessun contratto trovato</h3>
-              <p className="mt-1 text-sm text-slate-500">
+              <h3 className="mt-2 text-lg font-medium text-slate-800 dark:text-slate-100">Nessun contratto trovato</h3>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 {selectedProvider !== 'all'
                   ? `Nessun contratto trovato per il fornitore "${selectedProvider}".`
                   : clients.length > 0

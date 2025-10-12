@@ -184,7 +184,7 @@ const App: React.FC = () => {
             try {
                 const creds = await api.getCredentials();
                 setCredentials(creds);
-            } catch (err) {
+            } catch (err: unknown) {
                 console.error("Failed to fetch credentials");
                 // FIX: Safely handle the error object by checking its type before accessing properties.
                 if (err instanceof Error) {
