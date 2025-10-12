@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Client, Contract } from './types';
 import { ContractType } from './types';
@@ -116,20 +117,9 @@ const LoginScreen: React.FC<{ onLogin: (user: string, pass: string) => void; err
 
 const App: React.FC = () => {
     // --- Authentication State ---
+    const [isAuthLoading, setIsAuthLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [credentials, setCredentials] = useState(() => {
-        try {
-            const stored = localStorage.getItem('crm-credentials');
-            if (stored) return JSON.parse(stored);
-        } catch (e) {
-            if (e instanceof Error) {
-                console.error("Failed to parse credentials from localStorage", e.message);
-            } else {
-                console.error("Failed to parse credentials from localStorage", String(e));
-            }
-        }
-        return { username: 'admin', password: 'admin' };
-    });
+    const [credentials, setCredentials] = useState({ username: '', password: '' });
     const [loginError, setLoginError] = useState('');
     const [toast, setToast] = useState<ToastState>(null);
 
@@ -187,6 +177,22 @@ const App: React.FC = () => {
     };
 
     // --- Authentication Handlers ---
+    useEffect(() => {
+        const fetchCredentials = async () => {
+            try {
+                const creds = await api.getCredentials();
+                setCredentials(creds);
+            } catch (err) {
+                console.error("Failed to fetch credentials", err);
+                setLoginError("Impossibile caricare le credenziali. Controlla la connessione.");
+                setCredentials({ username: 'admin', password: 'admin' }); // Fallback
+            } finally {
+                setIsAuthLoading(false);
+            }
+        };
+        fetchCredentials();
+    }, []);
+
     const handleLogin = (user: string, pass: string) => {
         if (user === credentials.username && pass === credentials.password) {
             setIsAuthenticated(true);
@@ -200,14 +206,19 @@ const App: React.FC = () => {
         setIsAuthenticated(false);
     };
     
-    const handleSaveCredentials = (newCreds: {username: string, password: string}) => {
+    const handleSaveCredentials = async (newCreds: {username: string, password: string}) => {
         if (newCreds.username.trim() === '' || newCreds.password.trim() === '') {
             setToast({ message: 'Username e Password non possono essere vuoti.', type: 'error' });
             return;
         }
-        setCredentials(newCreds);
-        localStorage.setItem('crm-credentials', JSON.stringify(newCreds));
-        setToast({ message: "Credenziali salvate correttamente!", type: 'success' });
+        try {
+            await api.updateCredentials(newCreds);
+            setCredentials(newCreds);
+            setToast({ message: "Credenziali salvate correttamente!", type: 'success' });
+        } catch (err) {
+            console.error("Failed to save credentials", err);
+            setToast({ message: "Salvataggio credenziali fallito. Riprova.", type: 'error' });
+        }
     };
 
     // Data fetching
@@ -357,8 +368,8 @@ const App: React.FC = () => {
             const updatedProviders = await api.addProvider(newProvider);
             setProviders(updatedProviders);
             setToast({ message: "Fornitore aggiunto con successo!", type: 'success' });
-// FIX: Safely handle the error when adding a provider fails by checking if it's an instance of Error.
         } catch (e) {
+            // FIX: Safely handle the error when adding a provider fails by checking if it's an instance of Error.
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
@@ -652,6 +663,14 @@ const App: React.FC = () => {
         }
     };
     
+    if (isAuthLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-slate-100 dark:bg-slate-900">
+                <Spinner size="lg" />
+            </div>
+        );
+    }
+
     if (!isAuthenticated) {
         return <LoginScreen onLogin={handleLogin} error={loginError} />;
     }
@@ -760,7 +779,7 @@ const App: React.FC = () => {
 // --- Componente Vista Impostazioni ---
 const SettingsView: React.FC<{
     currentCredentials: { username: string; password?: string };
-    onSave: (creds: { username: string; password: string }) => void;
+    onSave: (creds: { username: string; password: string }) => Promise<void>;
     providers: string[];
     onAddProvider: (provider: string) => Promise<void>;
     onDeleteProvider: (provider: string) => void;
@@ -768,11 +787,15 @@ const SettingsView: React.FC<{
     const [username, setUsername] = useState(currentCredentials.username);
     const [password, setPassword] = useState('');
     const [newProvider, setNewProvider] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
 
-    const handleCredentialsSubmit = (e: React.FormEvent) => {
+    const handleCredentialsSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({ username, password });
+        setIsSaving(true);
+        await onSave({ username, password });
+        setIsSaving(false);
+        setPassword('');
     };
 
     const handleAddProviderSubmit = async (e: React.FormEvent) => {
@@ -794,7 +817,7 @@ const SettingsView: React.FC<{
             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg animate-fade-in-down">
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Impostazioni Credenziali</h2>
                 <p className="mt-2 text-slate-600 dark:text-slate-400">
-                    Modifica le credenziali di accesso. Le modifiche verranno salvate solo per questo browser.
+                    Modifica le credenziali di accesso. Le modifiche saranno sincronizzate su tutti i dispositivi.
                 </p>
 
                 <form onSubmit={handleCredentialsSubmit} className="mt-6 space-y-4">
@@ -834,9 +857,11 @@ const SettingsView: React.FC<{
                     <div className="pt-2 text-right">
                         <button
                             type="submit"
-                            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors"
+                            disabled={isSaving}
+                            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors disabled:bg-sky-400"
                         >
-                            Salva Credenziali
+                            {isSaving && <Spinner size="sm" color="border-white" className="mr-2" />}
+                            {isSaving ? 'Salvataggio...' : 'Salva Credenziali'}
                         </button>
                     </div>
                 </form>

@@ -118,3 +118,22 @@ export const deleteProvider = async (providerToDelete: string): Promise<string[]
     
     return providers;
 };
+
+// --- Credentials ---
+
+const credentialsDocRef = doc(db, 'config', 'credentials');
+
+export const getCredentials = async (): Promise<{username: string, password: string}> => {
+    const docSnap = await getDoc(credentialsDocRef);
+    if (docSnap.exists() && docSnap.data().username) {
+        return docSnap.data() as {username: string, password: string};
+    } else {
+        const defaultCredentials = { username: 'admin', password: 'admin' };
+        await setDoc(credentialsDocRef, defaultCredentials);
+        return defaultCredentials;
+    }
+};
+
+export const updateCredentials = async (newCreds: {username: string, password: string}): Promise<void> => {
+    await setDoc(credentialsDocRef, newCreds);
+};

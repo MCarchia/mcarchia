@@ -50,3 +50,12 @@ export const addProvider = async (newProvider: string): Promise<string[]> => {
 export const deleteProvider = async (providerToDelete: string): Promise<string[]> => {
     return firebaseApi.deleteProvider(providerToDelete);
 };
+
+// --- Credentials API ---
+export const getCredentials = async (): Promise<{username: string, password: string}> => {
+    return firebaseApi.getCredentials();
+};
+
+export const updateCredentials = async (newCreds: {username: string, password: string}): Promise<void> => {
+    return firebaseApi.updateCredentials(newCreds);
+};
