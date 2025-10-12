@@ -69,12 +69,12 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
       return { total: 0, providers: [] };
     }
 
-    // FIX: By explicitly typing the accumulator in the reduce callback,
-    // we ensure correct type inference for `providerCounts` and resolve downstream arithmetic errors.
-    const providerCounts = contracts.reduce((acc: Record<string, number>, contract) => {
+    // FIX: By explicitly typing the initial value of the accumulator, we ensure correct type inference for `providerCounts`.
+    // This resolves downstream arithmetic errors where `count` was being inferred as `never` instead of `number`.
+    const providerCounts = contracts.reduce((acc, contract) => {
       acc[contract.provider] = (acc[contract.provider] || 0) + 1;
       return acc;
-    }, {});
+    }, {} as Record<string, number>);
 
     const sortedProviders = Object.entries(providerCounts).sort(([, countA], [, countB]) => countB - countA);
     
@@ -112,10 +112,10 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
   }, [contracts, colors]);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
       <div className="flex items-center mb-4">
         {icon}
-        <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{title}</h2>
       </div>
       {chartData.providers.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
@@ -139,10 +139,10 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
                         <li key={provider.name} className="flex items-center justify-between">
                             <div className="flex items-center">
                                 <span className="h-3 w-3 rounded-full mr-3" style={{ backgroundColor: provider.color }} aria-hidden="true"></span>
-                                <span className="font-medium text-slate-700">{provider.name}</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-200">{provider.name}</span>
                             </div>
-                            <div className="text-slate-500">
-                                <span className="font-semibold text-slate-800">{provider.count}</span>
+                            <div className="text-slate-500 dark:text-slate-400">
+                                <span className="font-semibold text-slate-800 dark:text-slate-100">{provider.count}</span>
                                 <span className="ml-2 text-xs">({provider.percentage}%)</span>
                             </div>
                         </li>
@@ -152,7 +152,7 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
         </div>
       ) : (
         <div className="text-center py-10 h-full flex flex-col justify-center">
-          <p className="text-slate-500">{noDataMessage}</p>
+          <p className="text-slate-500 dark:text-slate-400">{noDataMessage}</p>
         </div>
       )}
     </div>

@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Client, Contract } from './types';
 import { ContractType } from './types';
@@ -16,11 +13,14 @@ import ExpiringContractsWidget from './components/ExpiringContractsWidget';
 import TotalClientsWidget from './components/TotalClientsWidget';
 import TotalContractsWidget from './components/TotalContractsWidget';
 import CommissionSummaryWidget from './components/CommissionSummaryWidget';
+import TotalProvidersWidget from './components/TotalProvidersWidget';
 import ClientChart from './components/ClientChart';
+import ContractChart from './components/ContractChart';
+import CommissionChart from './components/CommissionChart';
 import EnergyProviderPieChart from './components/EnergyProviderPieChart';
 import TelephonyProviderPieChart from './components/TelephonyProviderPieChart';
 import SearchModal from './components/SearchModal';
-import { MenuIcon, CheckCircleIcon, UserGroupIcon, ChartBarIcon, PlusIcon, TrashIcon, ExclamationIcon } from './components/Icons';
+import { MenuIcon, CheckCircleIcon, UserGroupIcon, ChartBarIcon, PlusIcon, TrashIcon, ExclamationIcon, DocumentDuplicateIcon, TrendingUpIcon } from './components/Icons';
 
 type View = 'dashboard' | 'contracts' | 'clients' | 'settings';
 type ModalState = { type: 'client' | 'contract'; data: Client | Contract | null } | null;
@@ -140,6 +140,8 @@ const App: React.FC = () => {
     const [selectedMonth, setSelectedMonth] = useState<string>('all');
     const [selectedProvider, setSelectedProvider] = useState<string>('all');
     const [clientChartYear, setClientChartYear] = useState<string>(new Date().getFullYear().toString());
+    const [contractChartYear, setContractChartYear] = useState<string>(new Date().getFullYear().toString());
+    const [commissionChartYear, setCommissionChartYear] = useState<string>(new Date().getFullYear().toString());
 
     // Contract list filter
     const [contractListProvider, setContractListProvider] = useState<string>('all');
@@ -183,7 +185,13 @@ const App: React.FC = () => {
                 const creds = await api.getCredentials();
                 setCredentials(creds);
             } catch (err) {
-                console.error("Failed to fetch credentials", err);
+                console.error("Failed to fetch credentials");
+                // FIX: Safely handle the error object by checking its type before accessing properties.
+                if (err instanceof Error) {
+                    console.error(err.message);
+                } else {
+                    console.error(String(err));
+                }
                 setLoginError("Impossibile caricare le credenziali. Controlla la connessione.");
                 setCredentials({ username: 'admin', password: 'admin' }); // Fallback
             } finally {
@@ -216,7 +224,13 @@ const App: React.FC = () => {
             setCredentials(newCreds);
             setToast({ message: "Credenziali salvate correttamente!", type: 'success' });
         } catch (err) {
-            console.error("Failed to save credentials", err);
+            console.error("Failed to save credentials");
+            // FIX: Safely handle the error object by checking its type before accessing properties.
+            if (err instanceof Error) {
+                console.error(err.message);
+            } else {
+                console.error(String(err));
+            }
             setToast({ message: "Salvataggio credenziali fallito. Riprova.", type: 'error' });
         }
     };
@@ -235,6 +249,7 @@ const App: React.FC = () => {
             setContracts(contractsData);
             setProviders(providersData);
         } catch (e) {
+            // FIX: Safely handle the error object by checking its type before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
@@ -279,6 +294,7 @@ const App: React.FC = () => {
             setModal(null);
             await fetchData();
         } catch (e) {
+            // FIX: Safely handle the error object by checking its type before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
@@ -306,6 +322,7 @@ const App: React.FC = () => {
             setModal(null);
             await fetchData();
         } catch (e) {
+            // FIX: Safely handle the error object by checking its type before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
@@ -350,6 +367,7 @@ const App: React.FC = () => {
                 errorMessage = "Eliminazione del fornitore fallita.";
             }
             
+            // FIX: Safely handle the error object by checking its type before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
@@ -369,7 +387,7 @@ const App: React.FC = () => {
             setProviders(updatedProviders);
             setToast({ message: "Fornitore aggiunto con successo!", type: 'success' });
         } catch (e) {
-            // FIX: Safely handle the error when adding a provider fails by checking if it's an instance of Error.
+            // FIX: Safely handle the error object by checking its type before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
@@ -413,6 +431,18 @@ const App: React.FC = () => {
         return filteredContracts.reduce((sum, contract) => sum + (contract.commission || 0), 0);
     }, [filteredContracts]);
     
+    const energyCommission = useMemo(() => {
+        return filteredContracts
+            .filter(c => c.type === ContractType.Electricity || c.type === ContractType.Gas)
+            .reduce((sum, contract) => sum + (contract.commission || 0), 0);
+    }, [filteredContracts]);
+
+    const telephonyCommission = useMemo(() => {
+        return filteredContracts
+            .filter(c => c.type === ContractType.Telephony)
+            .reduce((sum, contract) => sum + (contract.commission || 0), 0);
+    }, [filteredContracts]);
+    
     const energyContracts = useMemo(() => 
         contracts.filter(c => c.type === ContractType.Electricity || c.type === ContractType.Gas), 
     [contracts]);
@@ -420,6 +450,24 @@ const App: React.FC = () => {
     const telephonyContracts = useMemo(() => 
         contracts.filter(c => c.type === ContractType.Telephony), 
     [contracts]);
+
+    const providerCounts = useMemo(() => {
+        const energyProviders = new Set<string>();
+        const telephonyProviders = new Set<string>();
+
+        contracts.forEach(contract => {
+            if (contract.type === ContractType.Electricity || contract.type === ContractType.Gas) {
+                energyProviders.add(contract.provider);
+            } else if (contract.type === ContractType.Telephony) {
+                telephonyProviders.add(contract.provider);
+            }
+        });
+
+        return {
+            energy: energyProviders.size,
+            telephony: telephonyProviders.size,
+        };
+    }, [contracts]);
 
     const availableYears = useMemo(() => {
         const years = new Set(contracts.map(c => new Date(c.startDate).getFullYear().toString()));
@@ -434,6 +482,15 @@ const App: React.FC = () => {
         }
         return Array.from(years).sort((a,b) => parseInt(b) - parseInt(a));
     }, [clients]);
+
+    const contractAvailableYears = useMemo(() => {
+        const years = new Set(contracts.map(c => new Date(c.startDate).getFullYear().toString()));
+        const currentYear = new Date().getFullYear().toString();
+        if (!years.has(currentYear)) {
+            years.add(currentYear);
+        }
+        return Array.from(years).sort((a, b) => parseInt(b) - parseInt(a));
+    }, [contracts]);
 
     // Search logic
     const searchResults = useMemo(() => {
@@ -587,7 +644,7 @@ const App: React.FC = () => {
                             />
                         }
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                             <TotalClientsWidget totalClients={clients.length} />
                             <TotalContractsWidget 
                                 totalContracts={filteredContracts.length}
@@ -597,36 +654,94 @@ const App: React.FC = () => {
                             />
                             <CommissionSummaryWidget 
                                 totalCommission={totalCommission}
+                                energyCommission={energyCommission}
+                                telephonyCommission={telephonyCommission}
                                 selectedYear={selectedYear}
                                 selectedMonth={selectedMonth}
                                 selectedProvider={selectedProvider}
                              />
+                             <TotalProvidersWidget
+                                totalProviders={providers.length}
+                                energyProviderCount={providerCounts.energy}
+                                telephonyProviderCount={providerCounts.telephony}
+                            />
                         </div>
                         
-                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                                <div className="flex items-center">
-                                    <ChartBarIcon className="h-6 w-6 text-sky-500 mr-3" />
-                                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Andamento Clienti</h2>
+                        <div className="space-y-6">
+                            {/* Trend Charts */}
+                            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                                {/* Client Chart */}
+                                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                                        <div className="flex items-center">
+                                            <ChartBarIcon className="h-6 w-6 text-sky-500 mr-3" />
+                                            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Andamento Clienti</h2>
+                                        </div>
+                                        <div className="mt-3 sm:mt-0">
+                                            <label htmlFor="client-chart-year-filter" className="sr-only">Seleziona Anno</label>
+                                            <select 
+                                                id="client-chart-year-filter" 
+                                                value={clientChartYear} 
+                                                onChange={e => setClientChartYear(e.target.value)} 
+                                                className="w-full sm:w-auto text-sm bg-slate-100 dark:bg-slate-700 border-transparent focus:border-sky-500 focus:ring-sky-500 rounded-md py-1.5 px-3 transition"
+                                            >
+                                                {clientAvailableYears.map(year => <option key={year} value={year}>{year}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <ClientChart clients={clients} selectedYear={clientChartYear} />
                                 </div>
-                                <div className="mt-3 sm:mt-0">
-                                    <label htmlFor="client-chart-year-filter" className="sr-only">Seleziona Anno</label>
-                                    <select 
-                                        id="client-chart-year-filter" 
-                                        value={clientChartYear} 
-                                        onChange={e => setClientChartYear(e.target.value)} 
-                                        className="w-full sm:w-auto text-sm bg-slate-100 dark:bg-slate-700 border-transparent focus:border-sky-500 focus:ring-sky-500 rounded-md py-1.5 px-3 transition"
-                                    >
-                                        {clientAvailableYears.map(year => <option key={year} value={year}>{year}</option>)}
-                                    </select>
+
+                                {/* Contract Chart */}
+                                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                                        <div className="flex items-center">
+                                            <DocumentDuplicateIcon className="h-6 w-6 text-green-500 mr-3" />
+                                            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Andamento Contratti</h2>
+                                        </div>
+                                        <div className="mt-3 sm:mt-0">
+                                            <label htmlFor="contract-chart-year-filter" className="sr-only">Seleziona Anno</label>
+                                            <select 
+                                                id="contract-chart-year-filter" 
+                                                value={contractChartYear} 
+                                                onChange={e => setContractChartYear(e.target.value)} 
+                                                className="w-full sm:w-auto text-sm bg-slate-100 dark:bg-slate-700 border-transparent focus:border-sky-500 focus:ring-sky-500 rounded-md py-1.5 px-3 transition"
+                                            >
+                                                {contractAvailableYears.map(year => <option key={year} value={year}>{year}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <ContractChart contracts={contracts} selectedYear={contractChartYear} />
+                                </div>
+                                
+                                {/* Commission Chart */}
+                                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                                        <div className="flex items-center">
+                                            <TrendingUpIcon className="h-6 w-6 text-indigo-500 mr-3" />
+                                            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Andamento Provvigioni</h2>
+                                        </div>
+                                        <div className="mt-3 sm:mt-0">
+                                            <label htmlFor="commission-chart-year-filter" className="sr-only">Seleziona Anno</label>
+                                            <select 
+                                                id="commission-chart-year-filter" 
+                                                value={commissionChartYear} 
+                                                onChange={e => setCommissionChartYear(e.target.value)} 
+                                                className="w-full sm:w-auto text-sm bg-slate-100 dark:bg-slate-700 border-transparent focus:border-indigo-500 focus:ring-indigo-500 rounded-md py-1.5 px-3 transition"
+                                            >
+                                                {contractAvailableYears.map(year => <option key={year} value={year}>{year}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <CommissionChart contracts={contracts} selectedYear={commissionChartYear} />
                                 </div>
                             </div>
-                            <ClientChart clients={clients} selectedYear={clientChartYear} />
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                           <EnergyProviderPieChart contracts={energyContracts} />
-                           <TelephonyProviderPieChart contracts={telephonyContracts} />
+                           
+                            {/* Provider Distribution Charts */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                               <EnergyProviderPieChart contracts={energyContracts} />
+                               <TelephonyProviderPieChart contracts={telephonyContracts} />
+                            </div>
                         </div>
                     </div>
                 );

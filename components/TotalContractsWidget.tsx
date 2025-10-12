@@ -46,18 +46,18 @@ const TotalContractsWidget: React.FC<TotalContractsWidgetProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col justify-between">
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 flex flex-col justify-between">
       <div className="flex items-start">
         <div className="flex-shrink-0 bg-sky-500 rounded-md p-3">
             <DocumentDuplicateIcon className="h-6 w-6 text-white" />
         </div>
         <div className="ml-5 w-0 flex-1">
           <dl>
-            <dt className="text-sm font-medium text-slate-500 truncate">
+            <dt className="text-sm font-medium text-slate-500 dark:text-slate-400 truncate">
               {title} <span className="text-xs">{subtitle}</span>
             </dt>
             <dd>
-              <div className="text-2xl font-bold text-slate-900">
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {totalContracts}
               </div>
             </dd>
