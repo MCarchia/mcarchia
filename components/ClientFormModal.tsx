@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { Client, Contract, Iban } from '../types';
 import { ContractType } from '../types';
 import { XIcon, PlusIcon, TrashIcon } from './Icons';
@@ -17,6 +17,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
   const getInitialFormData = () => ({
     firstName: '',
     lastName: '',
+    ragioneSociale: '',
     email: '',
     mobilePhone: '',
     codiceFiscale: '',
@@ -43,6 +44,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
         setFormData({
           firstName: client.firstName || '',
           lastName: client.lastName || '',
+          ragioneSociale: client.ragioneSociale || '',
           email: client.email || '',
           mobilePhone: client.mobilePhone || '',
           codiceFiscale: client.codiceFiscale || '',
@@ -172,6 +174,10 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
                     <label htmlFor="lastName" className="block text-sm font-medium text-slate-700">Cognome *</label>
                     <input type="text" id="lastName" name="lastName" value={formData.lastName} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
                   </div>
+                </div>
+                <div>
+                  <label htmlFor="ragioneSociale" className="block text-sm font-medium text-slate-700">Ragione Sociale</label>
+                  <input type="text" id="ragioneSociale" name="ragioneSociale" value={formData.ragioneSociale} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -353,7 +359,7 @@ interface ContractFormModalProps {
 
 export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, onClose, onSave, contract, clients, providers, onAddProvider, isSaving }) => {
   const getInitialFormData = () => ({
-    clientId: clients[0]?.id || '',
+    clientId: '',
     type: ContractType.Electricity,
     provider: '',
     contractCode: '',
@@ -369,6 +375,16 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
 
   const [formData, setFormData] = useState(getInitialFormData());
   const [showNewProviderInput, setShowNewProviderInput] = useState(false);
+
+  const sortedClients = useMemo(() => {
+    return [...clients].sort((a, b) => {
+        const lastNameComparison = (a.lastName || '').localeCompare(b.lastName || '');
+        if (lastNameComparison !== 0) {
+            return lastNameComparison;
+        }
+        return (a.firstName || '').localeCompare(b.firstName || '');
+    });
+  }, [clients]);
 
   useEffect(() => {
     if (isOpen) {
@@ -395,11 +411,13 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
             setShowNewProviderInput(false);
         }
       } else {
-        setFormData(getInitialFormData());
+        const initialData = getInitialFormData();
+        initialData.clientId = sortedClients[0]?.id || '';
+        setFormData(initialData);
         setShowNewProviderInput(false);
       }
     }
-  }, [contract, isOpen, clients, providers]);
+  }, [contract, isOpen, providers, sortedClients]);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -468,7 +486,7 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
               <label htmlFor="clientId" className="block text-sm font-medium text-slate-700">Cliente *</label>
               <select id="clientId" name="clientId" value={formData.clientId} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
                 <option value="" disabled>Seleziona un cliente</option>
-                {clients.map(c => <option key={c.id} value={c.id}>{`${c.firstName} ${c.lastName}`}</option>)}
+                {sortedClients.map(c => <option key={c.id} value={c.id}>{`${c.lastName} ${c.firstName}`}</option>)}
               </select>
             </div>
             

@@ -47,10 +47,10 @@ const CommissionChart: React.FC<CommissionChartProps> = ({ contracts, selectedYe
       <div className="text-sm text-slate-500 dark:text-slate-400 mb-6">
         Totale provvigioni per l'anno {selectedYear}: <span className="font-bold text-slate-700 dark:text-slate-200">{totalCommissionForYear.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}</span>
       </div>
-      <div className="flex justify-around items-end h-48 space-x-2 text-center" aria-label={`Grafico a barre delle provvigioni per l'anno ${selectedYear}`}>
+      <div className="flex justify-around items-end h-56 space-x-2 text-center" aria-label={`Grafico a barre delle provvigioni per l'anno ${selectedYear}`}>
         {chartData.map(({ month, commission }) => (
-          <div key={`${month}-${selectedYear}`} className="flex flex-col items-center justify-end w-full h-full group">
-             <div className="text-sm font-bold text-slate-700 dark:text-slate-100 mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300" aria-hidden="true">
+          <div key={`${month}-${selectedYear}`} className="flex flex-col items-center justify-end w-full h-full group min-w-0">
+             <div className="w-full text-center break-words text-sm font-bold text-slate-700 dark:text-slate-100 mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300" aria-hidden="true">
               {commission.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}
             </div>
             <div
@@ -61,7 +61,7 @@ const CommissionChart: React.FC<CommissionChartProps> = ({ contracts, selectedYe
             >
                <div className="sr-only">{`${month}: ${commission.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}`}</div>
             </div>
-            <div className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">{month}</div>
+            <div className="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase [writing-mode:vertical-rl] [transform:rotate(180deg)]">{month}</div>
           </div>
         ))}
       </div>

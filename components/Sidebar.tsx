@@ -36,7 +36,7 @@ const NavButton: React.FC<{
         {icon}
         <span>{label}</span>
       </div>
-       {badgeCount && badgeCount > 0 && (
+       {badgeCount > 0 && (
         <span className={`flex items-center justify-center h-5 min-w-[1.25rem] px-1 rounded-full text-xs font-bold ${
           isActive ? 'bg-white text-sky-600' : 'bg-amber-400 text-white'
         }`}>

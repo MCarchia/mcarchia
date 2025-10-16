@@ -223,7 +223,7 @@ const App: React.FC = () => {
             await api.updateCredentials(newCreds);
             setCredentials(newCreds);
             setToast({ message: "Credenziali salvate correttamente!", type: 'success' });
-        } catch (err) {
+        } catch (err: unknown) {
             console.error("Failed to save credentials");
             // FIX: Safely handle the error object by checking its type before accessing properties.
             if (err instanceof Error) {
@@ -248,7 +248,7 @@ const App: React.FC = () => {
             setClients(clientsData);
             setContracts(contractsData);
             setProviders(providersData);
-        } catch (e) {
+        } catch (e: unknown) {
             // FIX: Safely handle the error object by checking its type before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
@@ -293,7 +293,7 @@ const App: React.FC = () => {
             }
             setModal(null);
             await fetchData();
-        } catch (e) {
+        } catch (e: unknown) {
             // FIX: Safely handle the error object by checking its type before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
@@ -321,7 +321,7 @@ const App: React.FC = () => {
             }
             setModal(null);
             await fetchData();
-        } catch (e) {
+        } catch (e: unknown) {
             // FIX: Safely handle the error object by checking its type before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
@@ -357,7 +357,7 @@ const App: React.FC = () => {
                 setProviders(updatedProviders);
                 setToast({ message: "Fornitore eliminato con successo!", type: 'success' });
             }
-        } catch (e) {
+        } catch (e: unknown) {
             let errorMessage = "Eliminazione fallita.";
             if (itemToDelete.type === 'client') {
                 errorMessage = "Eliminazione del cliente fallita.";
@@ -386,7 +386,7 @@ const App: React.FC = () => {
             const updatedProviders = await api.addProvider(newProvider);
             setProviders(updatedProviders);
             setToast({ message: "Fornitore aggiunto con successo!", type: 'success' });
-        } catch (e) {
+        } catch (e: unknown) {
             // FIX: Safely handle the error object by checking its type before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
@@ -501,6 +501,7 @@ const App: React.FC = () => {
         const foundClients = clients.filter(c =>
             c.firstName.toLowerCase().includes(lowerCaseQuery) ||
             c.lastName.toLowerCase().includes(lowerCaseQuery) ||
+            c.ragioneSociale?.toLowerCase().includes(lowerCaseQuery) ||
             c.email.toLowerCase().includes(lowerCaseQuery) ||
             c.codiceFiscale?.toLowerCase().includes(lowerCaseQuery)
         );

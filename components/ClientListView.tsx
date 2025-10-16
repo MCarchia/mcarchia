@@ -28,7 +28,13 @@ const formatAddress = (address?: Address) => {
 
 export const ClientListView: React.FC<ClientListViewProps> = ({ clients, contracts, onAdd, onEdit, onDelete }) => {
   const sortedClients = useMemo(() => {
-    return [...clients].sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
+    return [...clients].sort((a, b) => {
+        const lastNameComparison = (a.lastName || '').localeCompare(b.lastName || '');
+        if (lastNameComparison !== 0) {
+            return lastNameComparison;
+        }
+        return (a.firstName || '').localeCompare(b.firstName || '');
+    });
   }, [clients]);
 
   return (
@@ -62,7 +68,8 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, contrac
                     return (
                         <tr key={client.id} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50">
                             <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap align-top">
-                               <div className="font-semibold">{`${client.firstName} ${client.lastName}`}</div>
+                               <div className="font-semibold">{`${client.lastName} ${client.firstName}`}</div>
+                               {client.ragioneSociale && <div className="text-sm text-slate-600 dark:text-slate-300 mt-1">{client.ragioneSociale}</div>}
                                {client.codiceFiscale && <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1">{client.codiceFiscale}</div>}
                                <div className="flex items-center text-xs text-slate-400 dark:text-slate-500 mt-2">
                                  <CalendarIcon className="h-4 w-4 mr-1.5" />

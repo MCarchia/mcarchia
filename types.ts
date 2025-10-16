@@ -39,6 +39,7 @@ export interface Client {
   id: string;
   firstName: string;
   lastName:string;
+  ragioneSociale?: string;
   email: string;
   codiceFiscale?: string;
   mobilePhone?: string;

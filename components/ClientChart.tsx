@@ -48,7 +48,7 @@ const ClientChart: React.FC<ClientChartProps> = ({ clients, selectedYear }) => {
       <div className="text-sm text-slate-500 dark:text-slate-400 mb-6">
         Totale nuovi clienti per l'anno {selectedYear}: <span className="font-bold text-slate-700 dark:text-slate-200">{totalClientsForYear}</span>
       </div>
-      <div className="flex justify-around items-end h-48 space-x-2 text-center" aria-label={`Grafico a barre dei nuovi clienti per l'anno ${selectedYear}`}>
+      <div className="flex justify-around items-end h-56 space-x-2 text-center" aria-label={`Grafico a barre dei nuovi clienti per l'anno ${selectedYear}`}>
         {chartData.map(({ month, count }) => (
           <div key={`${month}-${selectedYear}`} className="flex flex-col items-center justify-end w-full h-full group">
              <div className="text-sm font-bold text-slate-700 dark:text-slate-100 mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300" aria-hidden="true">
@@ -62,7 +62,7 @@ const ClientChart: React.FC<ClientChartProps> = ({ clients, selectedYear }) => {
             >
                <div className="sr-only">{`${month}: ${count} clienti`}</div>
             </div>
-            <div className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">{month}</div>
+            <div className="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase [writing-mode:vertical-rl] [transform:rotate(180deg)]">{month}</div>
           </div>
         ))}
       </div>
