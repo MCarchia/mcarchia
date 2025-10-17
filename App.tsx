@@ -10,8 +10,8 @@ import { ClientFormModal, ContractFormModal } from './components/ClientFormModal
 import ConfirmationModal from './components/ConfirmationModal';
 import { Spinner } from './components/Spinner';
 import ExpiringContractsWidget from './components/ExpiringContractsWidget';
-import TotalClientsWidget from './components/TotalClientsWidget';
-import TotalContractsWidget from './components/TotalContractsWidget';
+import CombinedTotalsWidget from './components/CombinedTotalsWidget';
+import CurrentMonthCommissionWidget from './components/CurrentMonthCommissionWidget';
 import CommissionSummaryWidget from './components/CommissionSummaryWidget';
 import TotalProvidersWidget from './components/TotalProvidersWidget';
 import ClientChart from './components/ClientChart';
@@ -574,6 +574,55 @@ const App: React.FC = () => {
         return null;
     }, [itemToDelete, clients, contracts, getClientName]);
 
+    const currentMonthCommissions = useMemo(() => {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth(); // 0-indexed
+
+        const currentMonthContracts = contracts.filter(c => {
+            if (!c.startDate) return false;
+            const startDate = new Date(c.startDate);
+            return startDate.getFullYear() === currentYear && startDate.getMonth() === currentMonth;
+        });
+
+        const total = currentMonthContracts.reduce((sum, contract) => sum + (contract.commission || 0), 0);
+        const energy = currentMonthContracts
+            .filter(c => c.type === ContractType.Electricity || c.type === ContractType.Gas)
+            .reduce((sum, contract) => sum + (contract.commission || 0), 0);
+        const telephony = currentMonthContracts
+            .filter(c => c.type === ContractType.Telephony)
+            .reduce((sum, contract) => sum + (contract.commission || 0), 0);
+            
+        return { total, energy, telephony };
+    }, [contracts]);
+
+    const contractsWidgetSubtitle = useMemo(() => {
+        const months = [
+            { value: 'all', name: 'Tutti i Mesi' }, { value: '1', name: 'Gennaio' },
+            { value: '2', name: 'Febbraio' }, { value: '3', name: 'Marzo' },
+            { value: '4', name: 'Aprile' }, { value: '5', name: 'Maggio' },
+            { value: '6', name: 'Giugno' }, { value: '7', name: 'Luglio' },
+            { value: '8', name: 'Agosto' }, { value: '9', name: 'Settembre' },
+            { value: '10', name: 'Ottobre' }, { value: '11', name: 'Novembre' },
+            { value: '12', name: 'Dicembre' },
+        ];
+        const monthName = selectedMonth === 'all' ? undefined : months.find(m => m.value === selectedMonth)?.name;
+        const subtitleParts: string[] = [];
+        if (selectedProvider !== 'all') {
+            subtitleParts.push(selectedProvider);
+        }
+        if (selectedMonth !== 'all' && monthName) {
+            subtitleParts.push(monthName);
+        }
+        if (selectedYear !== 'all') {
+            subtitleParts.push(selectedYear);
+        }
+        if (subtitleParts.length > 0) {
+            return `(${subtitleParts.join(', ')})`;
+        }
+        return "(Complessivo)";
+    }, [selectedYear, selectedMonth, selectedProvider]);
+
     const renderContent = () => {
         if (isLoading && clients.length === 0) {
             return <div className="flex justify-center items-center h-full"><Spinner size="lg" /></div>;
@@ -646,12 +695,15 @@ const App: React.FC = () => {
                         }
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <TotalClientsWidget totalClients={clients.length} />
-                            <TotalContractsWidget 
+                            <CombinedTotalsWidget
+                                totalClients={clients.length}
                                 totalContracts={filteredContracts.length}
-                                selectedYear={selectedYear}
-                                selectedMonth={selectedMonth}
-                                selectedProvider={selectedProvider}
+                                contractsSubtitle={contractsWidgetSubtitle}
+                            />
+                            <CurrentMonthCommissionWidget
+                                totalCommission={currentMonthCommissions.total}
+                                energyCommission={currentMonthCommissions.energy}
+                                telephonyCommission={currentMonthCommissions.telephony}
                             />
                             <CommissionSummaryWidget 
                                 totalCommission={totalCommission}
