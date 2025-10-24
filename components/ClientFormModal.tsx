@@ -510,7 +510,11 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
               <label htmlFor="clientId" className="block text-sm font-medium text-slate-700">Cliente *</label>
               <select id="clientId" name="clientId" value={formData.clientId} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
                 <option value="" disabled>Seleziona un cliente</option>
-                {sortedClients.map(c => <option key={c.id} value={c.id}>{`${c.lastName} ${c.firstName}`}</option>)}
+                {sortedClients.map(c => (
+                    <option key={c.id} value={c.id}>
+                        {`${c.lastName} ${c.firstName}${c.ragioneSociale ? ` (${c.ragioneSociale})` : ''}`}
+                    </option>
+                ))}
               </select>
             </div>
             

@@ -186,7 +186,7 @@ const App: React.FC = () => {
                 setCredentials(creds);
             } catch (err: unknown) {
                 console.error("Failed to fetch credentials");
-                // FIX: Safely handle the error object by checking its type before accessing properties.
+                // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
                 if (err instanceof Error) {
                     console.error(err.message);
                 } else {
@@ -225,7 +225,7 @@ const App: React.FC = () => {
             setToast({ message: "Credenziali salvate correttamente!", type: 'success' });
         } catch (err: unknown) {
             console.error("Failed to save credentials");
-            // FIX: Safely handle the error object by checking its type before accessing properties.
+            // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
             if (err instanceof Error) {
                 console.error(err.message);
             } else {
@@ -249,7 +249,7 @@ const App: React.FC = () => {
             setContracts(contractsData);
             setProviders(providersData);
         } catch (e: unknown) {
-            // FIX: Safely handle the error object by checking its type before accessing properties.
+            // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
@@ -294,7 +294,7 @@ const App: React.FC = () => {
             setModal(null);
             await fetchData();
         } catch (e: unknown) {
-            // FIX: Safely handle the error object by checking its type before accessing properties.
+            // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
@@ -322,7 +322,7 @@ const App: React.FC = () => {
             setModal(null);
             await fetchData();
         } catch (e: unknown) {
-            // FIX: Safely handle the error object by checking its type before accessing properties.
+            // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
@@ -367,7 +367,7 @@ const App: React.FC = () => {
                 errorMessage = "Eliminazione del fornitore fallita.";
             }
             
-            // FIX: Safely handle the error object by checking its type before accessing properties.
+            // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
@@ -387,7 +387,7 @@ const App: React.FC = () => {
             setProviders(updatedProviders);
             setToast({ message: "Fornitore aggiunto con successo!", type: 'success' });
         } catch (e: unknown) {
-            // FIX: Safely handle the error object by checking its type before accessing properties.
+            // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
             if (e instanceof Error) {
                 console.error(e.message);
             } else {

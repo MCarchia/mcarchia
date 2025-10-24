@@ -1,4 +1,5 @@
 
+
 import React, { useMemo } from 'react';
 import type { Contract } from '../types';
 
@@ -70,8 +71,9 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
       return { total: 0, providers: [] };
     }
 
-    // FIX: By explicitly typing the accumulator (`acc`), we ensure correct type inference for `providerCounts`. This resolves downstream arithmetic errors where `count` was being inferred as a non-numeric type.
-    const providerCounts = contracts.reduce((acc: Record<string, number>, contract) => {
+    // FIX: By providing an explicit generic type argument to `reduce`, we ensure correct type inference for `providerCounts`.
+    // This resolves downstream arithmetic errors where `count` was being inferred as a non-numeric type.
+    const providerCounts = contracts.reduce<Record<string, number>>((acc, contract) => {
       acc[contract.provider] = (acc[contract.provider] || 0) + 1;
       return acc;
     }, {});
