@@ -42,6 +42,7 @@ export interface Client {
   ragioneSociale?: string;
   email: string;
   codiceFiscale?: string;
+  pIva?: string;
   mobilePhone?: string;
   ibans?: Iban[];
   legalAddress?: Address;

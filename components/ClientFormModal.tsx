@@ -21,6 +21,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
     email: '',
     mobilePhone: '',
     codiceFiscale: '',
+    pIva: '',
     ibans: [] as Iban[],
     legalAddress: { street: '', zipCode: '', city: '', state: '', country: 'Italia' },
     residentialAddress: { street: '', zipCode: '', city: '', state: '', country: 'Italia' },
@@ -28,7 +29,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
   });
 
   const [formData, setFormData] = useState(getInitialFormData());
-  const [errors, setErrors] = useState<{ codiceFiscale?: string; ibans?: (string | undefined)[] }>({});
+  const [errors, setErrors] = useState<{ codiceFiscale?: string; pIva?: string; ibans?: (string | undefined)[] }>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -48,6 +49,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
           email: client.email || '',
           mobilePhone: client.mobilePhone || '',
           codiceFiscale: client.codiceFiscale || '',
+          pIva: client.pIva || '',
           ibans: initialIbans,
           legalAddress: { ...getInitialFormData().legalAddress, ...(client.legalAddress || {}) },
           residentialAddress: { ...getInitialFormData().residentialAddress, ...(client.residentialAddress || {}) },
@@ -104,7 +106,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
     e.preventDefault();
     if (isSaving) return;
     
-    const validationErrors: { codiceFiscale?: string; ibans?: (string | undefined)[] } = {};
+    const validationErrors: { codiceFiscale?: string; pIva?: string; ibans?: (string | undefined)[] } = {};
 
     // Validazione Codice Fiscale
     const cfRegex = /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i;
@@ -112,6 +114,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
         validationErrors.codiceFiscale = 'Il formato del Codice Fiscale non è valido. (Es. RSSMRA80A01H501A)';
     }
     
+    // Validazione P.Iva
+    const pIvaRegex = /^[0-9]{11}$/;
+    if (formData.pIva && !pIvaRegex.test(formData.pIva)) {
+        validationErrors.pIva = 'La Partita IVA deve contenere 11 cifre.';
+    }
+
     // Validazione IBAN
     const ibanRegex = /^IT\d{2}[A-Z]\d{10}[a-zA-Z0-9]{12}$/i;
     const ibanErrors: (string | undefined)[] = [];
@@ -189,20 +197,36 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
                     <input type="tel" id="mobilePhone" name="mobilePhone" value={formData.mobilePhone} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
                   </div>
                 </div>
-                 <div>
-                  <label htmlFor="codiceFiscale" className="block text-sm font-medium text-slate-700">Codice Fiscale</label>
-                  <input 
-                    type="text" 
-                    id="codiceFiscale" 
-                    name="codiceFiscale" 
-                    value={formData.codiceFiscale} 
-                    onChange={handleChange} 
-                    className={`mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 sm:text-sm ${errors.codiceFiscale ? 'border-red-500 text-red-900 focus:border-red-500 focus:ring-red-500' : 'border-slate-300'}`}
-                    aria-invalid={!!errors.codiceFiscale}
-                    aria-describedby={errors.codiceFiscale ? "codice-fiscale-error" : undefined}
-                   />
-                   {errors.codiceFiscale && <p id="codice-fiscale-error" className="mt-1 text-sm text-red-600">{errors.codiceFiscale}</p>}
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div>
+                      <label htmlFor="codiceFiscale" className="block text-sm font-medium text-slate-700">Codice Fiscale</label>
+                      <input 
+                        type="text" 
+                        id="codiceFiscale" 
+                        name="codiceFiscale" 
+                        value={formData.codiceFiscale} 
+                        onChange={handleChange} 
+                        className={`mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 sm:text-sm ${errors.codiceFiscale ? 'border-red-500 text-red-900 focus:border-red-500 focus:ring-red-500' : 'border-slate-300'}`}
+                        aria-invalid={!!errors.codiceFiscale}
+                        aria-describedby={errors.codiceFiscale ? "codice-fiscale-error" : undefined}
+                       />
+                       {errors.codiceFiscale && <p id="codice-fiscale-error" className="mt-1 text-sm text-red-600">{errors.codiceFiscale}</p>}
+                    </div>
+                    <div>
+                        <label htmlFor="pIva" className="block text-sm font-medium text-slate-700">P. Iva</label>
+                        <input
+                            type="text"
+                            id="pIva"
+                            name="pIva"
+                            value={formData.pIva}
+                            onChange={handleChange}
+                            className={`mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 sm:text-sm ${errors.pIva ? 'border-red-500 text-red-900 focus:border-red-500 focus:ring-red-500' : 'border-slate-300'}`}
+                            aria-invalid={!!errors.pIva}
+                            aria-describedby={errors.pIva ? "piva-error" : undefined}
+                        />
+                        {errors.pIva && <p id="piva-error" className="mt-1 text-sm text-red-600">{errors.pIva}</p>}
+                    </div>
+                 </div>
               </div>
             </fieldset>
 

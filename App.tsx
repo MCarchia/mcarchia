@@ -503,7 +503,8 @@ const App: React.FC = () => {
             c.lastName.toLowerCase().includes(lowerCaseQuery) ||
             c.ragioneSociale?.toLowerCase().includes(lowerCaseQuery) ||
             c.email.toLowerCase().includes(lowerCaseQuery) ||
-            c.codiceFiscale?.toLowerCase().includes(lowerCaseQuery)
+            c.codiceFiscale?.toLowerCase().includes(lowerCaseQuery) ||
+            c.pIva?.toLowerCase().includes(lowerCaseQuery)
         );
         const foundContracts = contracts.filter(c =>
             c.provider.toLowerCase().includes(lowerCaseQuery) ||
