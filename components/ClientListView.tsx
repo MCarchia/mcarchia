@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Client, Contract, Address } from '../types';
 import { ContractType } from '../types';
-import { PencilIcon, TrashIcon, PlusIcon, LightningBoltIcon, DeviceMobileIcon, UserGroupIcon, ChevronUpIcon, ChevronDownIcon, FireIcon, CalendarIcon, DocumentDuplicateIcon, ExclamationIcon, SearchIcon } from './Icons';
+import { PencilIcon, TrashIcon, PlusIcon, LightningBoltIcon, DeviceMobileIcon, UserGroupIcon, ChevronUpIcon, ChevronDownIcon, FireIcon, CalendarIcon, DocumentDuplicateIcon, ExclamationIcon, SearchIcon, FilterIcon } from './Icons';
 
 // --- VISTA GESTIONE CLIENTI ---
 interface ClientListViewProps {
@@ -100,13 +100,36 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, contrac
                         <th scope="col" className="px-6 py-3">Cliente</th>
                         <th scope="col" className="px-6 py-3">Contatti</th>
                         <th scope="col" className="px-6 py-3">Indirizzi</th>
-                        <th scope="col" className="px-6 py-3 text-center">Contratti</th>
+                        <th scope="col" className="px-6 py-3 text-center">Contratti (Attivi/Tot.)</th>
                         <th scope="col" className="px-6 py-3 text-right">Azioni</th>
                     </tr>
                     </thead>
                     <tbody>
                     {sortedAndFilteredClients.map(client => {
-                        const contractCount = contracts.filter(c => c.clientId === client.id).length;
+                        const clientContracts = contracts.filter(c => c.clientId === client.id);
+                        const totalContractsCount = clientContracts.length;
+
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+
+                        const activeContractsCount = clientContracts.filter(c => {
+                          if (!c.startDate) return false;
+                          
+                          // Parse date string as YYYY-MM-DD to avoid timezone issues
+                          const [y, m, d] = c.startDate.split('-').map(Number);
+                          const startDate = new Date(y, m - 1, d);
+
+                          if (startDate > today) return false; // Not started yet
+
+                          if (c.endDate) {
+                            const [ey, em, ed] = c.endDate.split('-').map(Number);
+                            const endDate = new Date(ey, em - 1, ed);
+                            if (endDate < today) return false; // Already ended
+                          }
+                          
+                          return true;
+                        }).length;
+
                         return (
                             <tr key={client.id} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50">
                                 <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap align-top">
@@ -134,7 +157,9 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, contrac
                                 <td className="px-6 py-4 align-top text-center">
                                     <div className="flex items-center justify-center space-x-2">
                                         <DocumentDuplicateIcon className="h-4 w-4 text-slate-400" />
-                                        <span className="font-medium text-slate-700 dark:text-slate-200">{contractCount}</span>
+                                        <span className="font-medium text-slate-700 dark:text-slate-200">
+                                            {activeContractsCount} / {totalContractsCount}
+                                        </span>
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 text-right align-top">
@@ -169,9 +194,17 @@ interface ContractListViewProps {
   availableProviders: string[];
   selectedProvider: string;
   onProviderChange: (provider: string) => void;
+  startDateFrom: string;
+  onStartDateFromChange: (date: string) => void;
+  startDateTo: string;
+  onStartDateToChange: (date: string) => void;
+  endDateFrom: string;
+  onEndDateFromChange: (date: string) => void;
+  endDateTo: string;
+  onEndDateToChange: (date: string) => void;
 }
 
-type SortKey = 'endDate' | 'commission';
+type SortKey = 'endDate' | 'commission' | 'clientName';
 type SortDirection = 'ascending' | 'descending';
 type SortConfig = { key: SortKey; direction: SortDirection } | null;
 
@@ -184,13 +217,22 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
     onDelete,
     availableProviders,
     selectedProvider,
-    onProviderChange
+    onProviderChange,
+    startDateFrom,
+    onStartDateFromChange,
+    startDateTo,
+    onStartDateToChange,
+    endDateFrom,
+    onEndDateFromChange,
+    endDateTo,
+    onEndDateToChange
 }) => {
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'endDate', direction: 'ascending' });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'clientName', direction: 'ascending' });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
   const getClientName = (clientId: string) => {
     const client = clients.find(c => c.id === clientId);
-    return client ? `${client.firstName} ${client.lastName}` : 'N/D';
+    return client ? `${client.lastName} ${client.firstName}` : 'N/D';
   };
 
   const isExpiringSoon = (endDateStr?: string): boolean => {
@@ -207,6 +249,26 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
     let sortableContracts = [...contracts];
     if (sortConfig !== null) {
       sortableContracts.sort((a, b) => {
+        if (sortConfig.key === 'clientName') {
+            const clientA = clients.find(c => c.id === a.clientId);
+            const clientB = clients.find(c => c.id === b.clientId);
+            if (!clientA) return 1;
+            if (!clientB) return -1;
+            
+            const lastNameA = clientA.lastName || '';
+            const lastNameB = clientB.lastName || '';
+
+            let comparison = lastNameA.localeCompare(lastNameB);
+            if (comparison !== 0) {
+                return sortConfig.direction === 'ascending' ? comparison : -comparison;
+            }
+
+            const firstNameA = clientA.firstName || '';
+            const firstNameB = clientB.firstName || '';
+            comparison = firstNameA.localeCompare(firstNameB);
+            return sortConfig.direction === 'ascending' ? comparison : -comparison;
+        }
+
         let aValue, bValue;
         
         if (sortConfig.key === 'endDate') {
@@ -232,7 +294,7 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
       });
     }
     return sortableContracts;
-  }, [contracts, sortConfig]);
+  }, [contracts, sortConfig, clients]);
 
   const requestSort = (key: SortKey) => {
     let direction: SortDirection = 'ascending';
@@ -252,6 +314,16 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
     return <ChevronDownIcon className="h-4 w-4 text-slate-600 dark:text-slate-400" />;
   };
   
+  const handleResetFilters = () => {
+    onProviderChange('all');
+    onStartDateFromChange('');
+    onStartDateToChange('');
+    onEndDateFromChange('');
+    onEndDateToChange('');
+  };
+
+  const hasActiveFilters = selectedProvider !== 'all' || startDateFrom || startDateTo || endDateFrom || endDateTo;
+
   return (
     <div className="animate-fade-in">
       <div className="flex justify-between items-center mb-6">
@@ -267,11 +339,11 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
         </button>
       </div>
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
-        {availableProviders.length > 0 && (
-          <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20">
-            <div className="flex items-center space-x-3 max-w-sm">
-              <label htmlFor="provider-filter" className="text-sm font-medium text-slate-600 dark:text-slate-300 flex-shrink-0">
-                Filtra fornitore:
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label htmlFor="provider-filter" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                Filtra fornitore
               </label>
               <select
                 id="provider-filter"
@@ -287,15 +359,59 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                 ))}
               </select>
             </div>
+            <div className="flex items-end">
+              <button
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="flex items-center justify-center w-full sm:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-md text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+              >
+                <FilterIcon className="h-5 w-5 mr-2" />
+                Filtri Avanzati
+                {showAdvancedFilters ? <ChevronUpIcon className="h-5 w-5 ml-2" /> : <ChevronDownIcon className="h-5 w-5 ml-2" />}
+              </button>
+            </div>
           </div>
-        )}
+          {showAdvancedFilters && (
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-600 animate-fade-in-down">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Data Inizio Contratto</label>
+                  <div className="flex items-center space-x-2">
+                    <input type="date" value={startDateFrom} onChange={e => onStartDateFromChange(e.target.value)} className="block w-full text-sm px-3 py-1.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md focus:outline-none focus:ring-sky-500 focus:border-sky-500" aria-label="Data inizio da" />
+                    <span className="text-slate-500 dark:text-slate-400">→</span>
+                    <input type="date" value={startDateTo} onChange={e => onStartDateToChange(e.target.value)} className="block w-full text-sm px-3 py-1.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md focus:outline-none focus:ring-sky-500 focus:border-sky-500" aria-label="Data inizio a" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Data Scadenza Contratto</label>
+                  <div className="flex items-center space-x-2">
+                    <input type="date" value={endDateFrom} onChange={e => onEndDateFromChange(e.target.value)} className="block w-full text-sm px-3 py-1.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md focus:outline-none focus:ring-sky-500 focus:border-sky-500" aria-label="Data scadenza da" />
+                    <span className="text-slate-500 dark:text-slate-400">→</span>
+                    <input type="date" value={endDateTo} onChange={e => onEndDateToChange(e.target.value)} className="block w-full text-sm px-3 py-1.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md focus:outline-none focus:ring-sky-500 focus:border-sky-500" aria-label="Data scadenza a" />
+                  </div>
+                </div>
+              </div>
+              {hasActiveFilters && (
+                <div className="mt-4 text-right">
+                  <button onClick={handleResetFilters} className="text-sm font-medium text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300">
+                    Resetta Filtri
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <div className="overflow-x-auto">
           {sortedContracts.length > 0 ? (
             <table className="w-full text-sm text-left text-slate-500 dark:text-slate-400">
               <thead className="text-xs text-slate-700 dark:text-slate-300 uppercase bg-slate-50 dark:bg-slate-700/50">
                 <tr>
                   <th scope="col" className="px-6 py-3">Tipo</th>
-                  <th scope="col" className="px-6 py-3">Cliente</th>
+                  <th scope="col" className="px-6 py-3">
+                    <button onClick={() => requestSort('clientName')} className="flex items-center space-x-1 group">
+                      <span>Cliente</span>
+                      {getSortIcon('clientName')}
+                    </button>
+                  </th>
                   <th scope="col" className="px-6 py-3">Fornitore</th>
                   <th scope="col" className="px-6 py-3">Indirizzo Fornitura</th>
                   <th scope="col" className="px-6 py-3">

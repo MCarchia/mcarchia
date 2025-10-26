@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Client, Contract } from './types';
 import { ContractType } from './types';
@@ -143,8 +144,12 @@ const App: React.FC = () => {
     const [contractChartYear, setContractChartYear] = useState<string>(new Date().getFullYear().toString());
     const [commissionChartYear, setCommissionChartYear] = useState<string>(new Date().getFullYear().toString());
 
-    // Contract list filter
+    // Contract list filters
     const [contractListProvider, setContractListProvider] = useState<string>('all');
+    const [contractListStartDateFrom, setContractListStartDateFrom] = useState<string>('');
+    const [contractListStartDateTo, setContractListStartDateTo] = useState<string>('');
+    const [contractListEndDateFrom, setContractListEndDateFrom] = useState<string>('');
+    const [contractListEndDateTo, setContractListEndDateTo] = useState<string>('');
     
     // Sidebar state for mobile
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -190,7 +195,8 @@ const App: React.FC = () => {
                 if (err instanceof Error) {
                     console.error(err.message);
                 } else {
-                    console.error(String(err));
+                    // FIX: Changed to avoid potential type errors with console.error and provide more context.
+                    console.error("An unexpected error occurred while fetching credentials: " + String(err));
                 }
                 setLoginError("Impossibile caricare le credenziali. Controlla la connessione.");
                 setCredentials({ username: 'admin', password: 'admin' }); // Fallback
@@ -229,7 +235,8 @@ const App: React.FC = () => {
             if (err instanceof Error) {
                 console.error(err.message);
             } else {
-                console.error(String(err));
+                // FIX: Changed to avoid potential type errors with console.error and provide more context.
+                console.error("An unexpected error occurred while saving credentials: " + String(err));
             }
             setToast({ message: "Salvataggio credenziali fallito. Riprova.", type: 'error' });
         }
@@ -253,7 +260,8 @@ const App: React.FC = () => {
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
-                console.error(String(e));
+                // FIX: Changed to avoid potential type errors with console.error and provide more context.
+                console.error("An unexpected error occurred while fetching data: " + String(e));
             }
             setError("Si è verificato un errore nel caricamento dei dati. Riprova più tardi.");
         } finally {
@@ -298,7 +306,8 @@ const App: React.FC = () => {
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
-                console.error(String(e));
+                // FIX: Changed to avoid potential type errors with console.error and provide more context.
+                console.error("An unexpected error occurred while saving client: " + String(e));
             }
             setToast({ message: "Salvataggio del cliente fallito.", type: 'error' });
         } finally {
@@ -326,7 +335,8 @@ const App: React.FC = () => {
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
-                console.error(String(e));
+                // FIX: Changed to avoid potential type errors with console.error and provide more context.
+                console.error("An unexpected error occurred while saving contract: " + String(e));
             }
             setToast({ message: "Salvataggio del contratto fallito.", type: 'error' });
         } finally {
@@ -371,7 +381,8 @@ const App: React.FC = () => {
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
-                console.error(String(e));
+                // FIX: Changed to avoid potential type errors with console.error and provide more context.
+                console.error("An unexpected error occurred during deletion: " + String(e));
             }
             setToast({ message: errorMessage, type: 'error' });
         } finally {
@@ -391,7 +402,8 @@ const App: React.FC = () => {
             if (e instanceof Error) {
                 console.error(e.message);
             } else {
-                console.error(String(e));
+                // FIX: Changed to avoid potential type errors with console.error and provide more context.
+                console.error("An unexpected error occurred while adding provider: " + String(e));
             }
             setToast({ message: "Aggiunta del fornitore fallita.", type: 'error' });
         }
@@ -624,6 +636,27 @@ const App: React.FC = () => {
         return "(Complessivo)";
     }, [selectedYear, selectedMonth, selectedProvider]);
 
+    const filteredContractList = useMemo(() => {
+        return contracts
+            .filter(c => contractListProvider === 'all' || c.provider === contractListProvider)
+            .filter(c => {
+                if (!contractListStartDateFrom) return true;
+                return c.startDate && c.startDate >= contractListStartDateFrom;
+            })
+            .filter(c => {
+                if (!contractListStartDateTo) return true;
+                return c.startDate && c.startDate <= contractListStartDateTo;
+            })
+            .filter(c => {
+                if (!contractListEndDateFrom) return true;
+                return c.endDate && c.endDate >= contractListEndDateFrom;
+            })
+            .filter(c => {
+                if (!contractListEndDateTo) return true;
+                return c.endDate && c.endDate <= contractListEndDateTo;
+            });
+    }, [contracts, contractListProvider, contractListStartDateFrom, contractListStartDateTo, contractListEndDateFrom, contractListEndDateTo]);
+
     const renderContent = () => {
         if (isLoading && clients.length === 0) {
             return <div className="flex justify-center items-center h-full"><Spinner size="lg" /></div>;
@@ -808,7 +841,6 @@ const App: React.FC = () => {
                             onDelete={handleDeleteClient} 
                        />;
             case 'contracts':
-                const filteredContractList = contracts.filter(c => contractListProvider === 'all' || c.provider === contractListProvider);
                 return <ContractListView 
                             contracts={filteredContractList} 
                             clients={clients} 
@@ -818,6 +850,14 @@ const App: React.FC = () => {
                             availableProviders={providers}
                             selectedProvider={contractListProvider}
                             onProviderChange={setContractListProvider}
+                            startDateFrom={contractListStartDateFrom}
+                            onStartDateFromChange={setContractListStartDateFrom}
+                            startDateTo={contractListStartDateTo}
+                            onStartDateToChange={setContractListStartDateTo}
+                            endDateFrom={contractListEndDateFrom}
+                            onEndDateFromChange={setContractListEndDateFrom}
+                            endDateTo={contractListEndDateTo}
+                            onEndDateToChange={setContractListEndDateTo}
                        />;
             case 'settings':
                 return <SettingsView 
