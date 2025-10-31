@@ -1,21 +1,22 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { Client, Contract, Address } from '../types';
 import { ContractType } from '../types';
 import { PencilIcon, TrashIcon, PlusIcon, LightningBoltIcon, DeviceMobileIcon, UserGroupIcon, ChevronUpIcon, ChevronDownIcon, FireIcon, CalendarIcon, DocumentDuplicateIcon, ExclamationIcon, SearchIcon, FilterIcon, DocumentDownloadIcon } from './Icons';
 
-// --- CSV Export Utilities ---
-const escapeCsvCell = (cell: any): string => {
-    if (cell == null) { // handles null and undefined
+// --- CSV/Excel Export Utilities ---
+const escapeCell = (cell: any, delimiter: string): string => {
+    if (cell == null) {
         return '';
     }
     const str = String(cell);
-    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    // If the cell contains the delimiter, a quote, or a newline, wrap it in quotes.
+    if (str.includes(delimiter) || str.includes('"') || str.includes('\n') || str.includes('\r')) {
         return `"${str.replace(/"/g, '""')}"`;
     }
     return str;
 };
 
-const convertToCsv = (data: any[], headers: Record<string, string>): string => {
+const convertToDelimitedString = (data: any[], headers: Record<string, string>, delimiter: string): string => {
     const headerValues = Object.values(headers);
     const headerKeys = Object.keys(headers);
 
@@ -30,14 +31,15 @@ const convertToCsv = (data: any[], headers: Record<string, string>): string => {
                 }
                 value = value[k];
             }
-            return escapeCsvCell(value);
-        }).join(',');
+            return escapeCell(value, delimiter);
+        }).join(delimiter);
     });
-    return [headerValues.join(','), ...rows].join('\r\n');
+    return [headerValues.join(delimiter), ...rows].join('\r\n');
 };
 
-const downloadCsv = (csvString: string, filename: string) => {
-    const blob = new Blob([`\uFEFF${csvString}`], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel
+const downloadFile = (content: string, filename: string) => {
+    // BOM for UTF-8 to ensure Excel opens it correctly with special characters.
+    const blob = new Blob([`\uFEFF${content}`], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -47,6 +49,56 @@ const downloadCsv = (csvString: string, filename: string) => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+};
+
+// --- Export Button Component with Dropdown ---
+const ExportButton: React.FC<{ onExport: (format: 'csv' | 'excel') => void, title: string }> = ({ onExport, title }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div ref={wrapperRef} className="relative inline-block text-left">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex-shrink-0 inline-flex items-center justify-center bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 font-bold py-2 px-4 rounded-lg shadow-md border border-slate-300 dark:border-slate-600 transition-colors"
+                title={title}
+            >
+                <DocumentDownloadIcon className="h-5 w-5 mr-2" />
+                Esporta
+                <ChevronDownIcon className={`h-5 w-5 ml-1 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isOpen && (
+                <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-slate-700 ring-1 ring-black ring-opacity-5 z-10 animate-scale-in">
+                    <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+                        <button
+                            onClick={() => { onExport('csv'); setIsOpen(false); }}
+                            className="w-full text-left block px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600"
+                            role="menuitem"
+                        >
+                            Formato CSV <span className="text-xs text-slate-500">(virgola)</span>
+                        </button>
+                        <button
+                            onClick={() => { onExport('excel'); setIsOpen(false); }}
+                            className="w-full text-left block px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600"
+                            role="menuitem"
+                        >
+                            Formato Excel <span className="text-xs text-slate-500">(punto e virgola)</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 };
 
 
@@ -100,7 +152,10 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, contrac
     );
   }, [clients, filter]);
 
-  const handleExportClients = () => {
+  const handleExportClients = (format: 'csv' | 'excel') => {
+    const delimiter = format === 'excel' ? ';' : ',';
+    const filename = `clienti.csv`;
+    
     const maxIbans = Math.max(0, ...sortedAndFilteredClients.map(c => c.ibans?.length || 0));
 
     const headers: Record<string, string> = {
@@ -131,8 +186,8 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, contrac
         headers[`ibans.${i}.type`] = `IBAN ${i + 1} - Tipo`;
     }
 
-    const csvString = convertToCsv(sortedAndFilteredClients, headers);
-    downloadCsv(csvString, 'clienti.csv');
+    const csvString = convertToDelimitedString(sortedAndFilteredClients, headers, delimiter);
+    downloadFile(csvString, filename);
   };
 
   return (
@@ -152,14 +207,7 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, contrac
                     className="w-full pl-10 pr-4 py-2 text-sm bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
                 />
             </div>
-            <button
-              onClick={handleExportClients}
-              className="flex-shrink-0 flex items-center justify-center bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 font-bold py-2 px-4 rounded-lg shadow-md border border-slate-300 dark:border-slate-600 transition-colors"
-              title="Esporta in formato CSV"
-            >
-              <DocumentDownloadIcon className="h-5 w-5 mr-2" />
-              Esporta
-            </button>
+            <ExportButton onExport={handleExportClients} title="Esporta elenco clienti" />
             <button
               onClick={onAdd}
               className="flex-shrink-0 flex items-center justify-center bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105"
@@ -414,7 +462,10 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
 
   const hasActiveFilters = selectedProvider !== 'all' || startDateFrom || startDateTo || endDateFrom || endDateTo;
 
-  const handleExportContracts = () => {
+  const handleExportContracts = (format: 'csv' | 'excel') => {
+    const delimiter = format === 'excel' ? ';' : ',';
+    const filename = `contratti.csv`;
+
     const dataToExport = sortedContracts.map(contract => ({
         ...contract,
         clientName: getClientName(contract.clientId),
@@ -442,8 +493,8 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
         'notes': 'Note',
     };
 
-    const csvString = convertToCsv(dataToExport, headers);
-    downloadCsv(csvString, 'contratti.csv');
+    const csvString = convertToDelimitedString(dataToExport, headers, delimiter);
+    downloadFile(csvString, filename);
   };
 
   return (
@@ -481,7 +532,7 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                 ))}
               </select>
             </div>
-            <div className="flex items-end">
+            <div className="flex items-end space-x-4">
               <button
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                 className="flex items-center justify-center w-full sm:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-md text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
@@ -490,14 +541,7 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                 Filtri Avanzati
                 {showAdvancedFilters ? <ChevronUpIcon className="h-5 w-5 ml-2" /> : <ChevronDownIcon className="h-5 w-5 ml-2" />}
               </button>
-               <button
-                  onClick={handleExportContracts}
-                  className="ml-4 flex items-center justify-center w-full sm:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-md text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-                  title="Esporta i contratti filtrati in formato CSV"
-                >
-                  <DocumentDownloadIcon className="h-5 w-5 mr-2" />
-                  Esporta
-                </button>
+              <ExportButton onExport={handleExportContracts} title="Esporta elenco contratti filtrati" />
             </div>
           </div>
           {showAdvancedFilters && (

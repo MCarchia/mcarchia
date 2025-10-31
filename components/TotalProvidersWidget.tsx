@@ -21,11 +21,11 @@ const TotalProvidersWidget: React.FC<TotalProvidersWidgetProps> = ({
           </div>
           <div className="ml-5 w-0 flex-1">
             <dl>
-              <dt className="text-sm font-medium text-slate-500 dark:text-slate-400 truncate">
+              <dt className="text-sm font-medium text-slate-500 dark:text-slate-400">
                 Fornitori Salvati
               </dt>
               <dd>
-                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 break-words">
                   {totalProviders}
                 </div>
               </dd>
@@ -40,7 +40,7 @@ const TotalProvidersWidget: React.FC<TotalProvidersWidgetProps> = ({
                   <FireIcon className="h-4 w-4 text-orange-500 mr-1.5" />
                   <span>Energia/Gas</span>
               </div>
-              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-200">{energyProviderCount}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-200 break-words">{energyProviderCount}</p>
           </div>
           <div className="w-px bg-slate-200 dark:bg-slate-700"></div> {/* Divider */}
           <div>
@@ -48,7 +48,7 @@ const TotalProvidersWidget: React.FC<TotalProvidersWidgetProps> = ({
                    <DeviceMobileIcon className="h-4 w-4 text-sky-500 mr-1.5" />
                    <span>Telefonia</span>
                </div>
-              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-200">{telephonyProviderCount}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-200 break-words">{telephonyProviderCount}</p>
           </div>
       </div>
     </div>

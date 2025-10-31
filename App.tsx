@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Client, Contract } from './types';
 import { ContractType } from './types';
@@ -191,15 +192,8 @@ const App: React.FC = () => {
                 const creds = await api.getCredentials();
                 setCredentials(creds);
             } catch (err: unknown) {
-                console.error("Failed to fetch credentials");
-                // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
-                if (err instanceof Error) {
-                    console.error(err.message);
-                } else {
-                    // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                    // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
-                    console.error("An unexpected error occurred while fetching credentials:", err);
-                }
+                // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
+                console.error("Failed to fetch credentials:", err);
                 setLoginError("Impossibile caricare le credenziali. Controlla la connessione.");
                 setCredentials({ username: 'admin', password: 'admin' }); // Fallback
             } finally {
@@ -232,15 +226,8 @@ const App: React.FC = () => {
             setCredentials(newCreds);
             setToast({ message: "Credenziali salvate correttamente!", type: 'success' });
         } catch (err: unknown) {
-            console.error("Failed to save credentials");
-            // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
-            if (err instanceof Error) {
-                console.error(err.message);
-            } else {
-                // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
-                console.error("An unexpected error occurred while saving credentials:", err);
-            }
+            // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
+            console.error("Failed to save credentials:", err);
             setToast({ message: "Salvataggio credenziali fallito. Riprova.", type: 'error' });
         }
     };
@@ -259,14 +246,8 @@ const App: React.FC = () => {
             setContracts(contractsData);
             setProviders(providersData);
         } catch (e: unknown) {
-            // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
-            if (e instanceof Error) {
-                console.error(e.message);
-            } else {
-                // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
-                console.error("An unexpected error occurred while fetching data:", e);
-            }
+            // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
+            console.error("An unexpected error occurred while fetching data:", e);
             setError("Si è verificato un errore nel caricamento dei dati. Riprova più tardi.");
         } finally {
             setIsLoading(false);
@@ -306,14 +287,8 @@ const App: React.FC = () => {
             setModal(null);
             await fetchData();
         } catch (e: unknown) {
-            // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
-            if (e instanceof Error) {
-                console.error(e.message);
-            } else {
-                // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
-                console.error("An unexpected error occurred while saving client:", e);
-            }
+            // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
+            console.error("An unexpected error occurred while saving client:", e);
             setToast({ message: "Salvataggio del cliente fallito.", type: 'error' });
         } finally {
             setIsSaving(false);
@@ -336,14 +311,8 @@ const App: React.FC = () => {
             setModal(null);
             await fetchData();
         } catch (e: unknown) {
-            // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
-            if (e instanceof Error) {
-                console.error(e.message);
-            } else {
-                // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
-                console.error("An unexpected error occurred while saving contract:", e);
-            }
+            // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
+            console.error("An unexpected error occurred while saving contract:", e);
             setToast({ message: "Salvataggio del contratto fallito.", type: 'error' });
         } finally {
             setIsSaving(false);
@@ -383,14 +352,8 @@ const App: React.FC = () => {
                 errorMessage = "Eliminazione del fornitore fallita.";
             }
             
-            // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
-            if (e instanceof Error) {
-                console.error(e.message);
-            } else {
-                // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
-                console.error("An unexpected error occurred during deletion:", e);
-            }
+            // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
+            console.error("An unexpected error occurred during deletion:", e);
             setToast({ message: errorMessage, type: 'error' });
         } finally {
             setIsDeleting(false);
@@ -405,14 +368,8 @@ const App: React.FC = () => {
             setProviders(updatedProviders);
             setToast({ message: "Fornitore aggiunto con successo!", type: 'success' });
         } catch (e: unknown) {
-            // Safely handle the unknown error type by checking if it's an instance of Error before accessing properties.
-            if (e instanceof Error) {
-                console.error(e.message);
-            } else {
-                // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
-                console.error("An unexpected error occurred while adding provider:", e);
-            }
+            // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
+            console.error("An unexpected error occurred while adding provider:", e);
             setToast({ message: "Aggiunta del fornitore fallita.", type: 'error' });
         }
     };

@@ -69,12 +69,12 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
       return { total: 0, providers: [] };
     }
 
-    // FIX: Explicitly typed the accumulator in the `reduce` function to ensure `providerCounts` has the correct type (`Record<string, number>`).
-    // This resolves downstream arithmetic errors where `count` was being inferred as a non-numeric type.
-    const providerCounts = contracts.reduce((acc: Record<string, number>, contract) => {
+    // FIX: Correctly typed the initial value for the `reduce` function. This ensures that `count`
+    // is inferred as a number, resolving arithmetic errors in subsequent calculations.
+    const providerCounts = contracts.reduce((acc, contract) => {
       acc[contract.provider] = (acc[contract.provider] || 0) + 1;
       return acc;
-    }, {});
+    }, {} as Record<string, number>);
 
     const sortedProviders = Object.entries(providerCounts).sort(([, countA], [, countB]) => countB - countA);
     

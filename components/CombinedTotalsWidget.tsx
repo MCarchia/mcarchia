@@ -21,7 +21,7 @@ const CombinedTotalsWidget: React.FC<CombinedTotalsWidgetProps> = ({
           </div>
           <div className="ml-4 flex-1">
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Clienti Totali</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{totalClients}</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 break-words">{totalClients}</p>
           </div>
         </div>
       </div>
@@ -31,10 +31,10 @@ const CombinedTotalsWidget: React.FC<CombinedTotalsWidgetProps> = ({
               <DocumentDuplicateIcon className="h-6 w-6 text-white" />
           </div>
           <div className="ml-4 flex-1">
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 truncate">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
               Contratti <span className="text-xs">{contractsSubtitle}</span>
             </p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{totalContracts}</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 break-words">{totalContracts}</p>
           </div>
         </div>
       </div>

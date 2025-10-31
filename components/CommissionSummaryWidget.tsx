@@ -66,11 +66,11 @@ const CommissionSummaryWidget: React.FC<CommissionSummaryWidgetProps> = ({
           </div>
           <div className="ml-5 w-0 flex-1">
             <dl>
-              <dt className="text-sm font-medium text-slate-500 dark:text-slate-400 truncate">
+              <dt className="text-sm font-medium text-slate-500 dark:text-slate-400">
                 {title} <span className="text-xs">{subtitle}</span>
               </dt>
               <dd>
-                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 break-words">
                   {totalCommission.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}
                 </div>
               </dd>
@@ -85,7 +85,7 @@ const CommissionSummaryWidget: React.FC<CommissionSummaryWidgetProps> = ({
                   <FireIcon className="h-4 w-4 text-orange-500 mr-1.5" />
                   <span>Energia/Gas</span>
               </div>
-              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-200">
+              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-200 break-words">
                 {energyCommission.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}
               </p>
           </div>
@@ -95,7 +95,7 @@ const CommissionSummaryWidget: React.FC<CommissionSummaryWidgetProps> = ({
                    <DeviceMobileIcon className="h-4 w-4 text-sky-500 mr-1.5" />
                    <span>Telefonia</span>
                </div>
-              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-200">
+              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-200 break-words">
                 {telephonyCommission.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}
               </p>
           </div>
