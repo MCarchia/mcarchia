@@ -1,7 +1,54 @@
 import React, { useState, useMemo } from 'react';
 import type { Client, Contract, Address } from '../types';
 import { ContractType } from '../types';
-import { PencilIcon, TrashIcon, PlusIcon, LightningBoltIcon, DeviceMobileIcon, UserGroupIcon, ChevronUpIcon, ChevronDownIcon, FireIcon, CalendarIcon, DocumentDuplicateIcon, ExclamationIcon, SearchIcon, FilterIcon } from './Icons';
+import { PencilIcon, TrashIcon, PlusIcon, LightningBoltIcon, DeviceMobileIcon, UserGroupIcon, ChevronUpIcon, ChevronDownIcon, FireIcon, CalendarIcon, DocumentDuplicateIcon, ExclamationIcon, SearchIcon, FilterIcon, DocumentDownloadIcon } from './Icons';
+
+// --- CSV Export Utilities ---
+const escapeCsvCell = (cell: any): string => {
+    if (cell == null) { // handles null and undefined
+        return '';
+    }
+    const str = String(cell);
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+};
+
+const convertToCsv = (data: any[], headers: Record<string, string>): string => {
+    const headerValues = Object.values(headers);
+    const headerKeys = Object.keys(headers);
+
+    const rows = data.map(item => {
+        return headerKeys.map(key => {
+            const keys = key.split('.');
+            let value = item;
+            for (const k of keys) {
+                if (value == null) {
+                    value = undefined;
+                    break;
+                }
+                value = value[k];
+            }
+            return escapeCsvCell(value);
+        }).join(',');
+    });
+    return [headerValues.join(','), ...rows].join('\r\n');
+};
+
+const downloadCsv = (csvString: string, filename: string) => {
+    const blob = new Blob([`\uFEFF${csvString}`], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+};
+
 
 // --- VISTA GESTIONE CLIENTI ---
 interface ClientListViewProps {
@@ -53,6 +100,41 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, contrac
     );
   }, [clients, filter]);
 
+  const handleExportClients = () => {
+    const maxIbans = Math.max(0, ...sortedAndFilteredClients.map(c => c.ibans?.length || 0));
+
+    const headers: Record<string, string> = {
+        'id': 'ID',
+        'firstName': 'Nome',
+        'lastName': 'Cognome',
+        'ragioneSociale': 'Ragione Sociale',
+        'email': 'Email',
+        'mobilePhone': 'Cellulare',
+        'codiceFiscale': 'Codice Fiscale',
+        'pIva': 'Partita IVA',
+        'legalAddress.street': 'Sede Legale - Via',
+        'legalAddress.zipCode': 'Sede Legale - CAP',
+        'legalAddress.city': 'Sede Legale - Comune',
+        'legalAddress.state': 'Sede Legale - Provincia',
+        'legalAddress.country': 'Sede Legale - Nazione',
+        'residentialAddress.street': 'Residenza - Via',
+        'residentialAddress.zipCode': 'Residenza - CAP',
+        'residentialAddress.city': 'Residenza - Comune',
+        'residentialAddress.state': 'Residenza - Provincia',
+        'residentialAddress.country': 'Residenza - Nazione',
+        'notes': 'Note',
+        'createdAt': 'Data Creazione'
+    };
+
+    for (let i = 0; i < maxIbans; i++) {
+        headers[`ibans.${i}.value`] = `IBAN ${i + 1} - Valore`;
+        headers[`ibans.${i}.type`] = `IBAN ${i + 1} - Tipo`;
+    }
+
+    const csvString = convertToCsv(sortedAndFilteredClients, headers);
+    downloadCsv(csvString, 'clienti.csv');
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
@@ -70,6 +152,14 @@ export const ClientListView: React.FC<ClientListViewProps> = ({ clients, contrac
                     className="w-full pl-10 pr-4 py-2 text-sm bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
                 />
             </div>
+            <button
+              onClick={handleExportClients}
+              className="flex-shrink-0 flex items-center justify-center bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 font-bold py-2 px-4 rounded-lg shadow-md border border-slate-300 dark:border-slate-600 transition-colors"
+              title="Esporta in formato CSV"
+            >
+              <DocumentDownloadIcon className="h-5 w-5 mr-2" />
+              Esporta
+            </button>
             <button
               onClick={onAdd}
               className="flex-shrink-0 flex items-center justify-center bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105"
@@ -324,6 +414,38 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
 
   const hasActiveFilters = selectedProvider !== 'all' || startDateFrom || startDateTo || endDateFrom || endDateTo;
 
+  const handleExportContracts = () => {
+    const dataToExport = sortedContracts.map(contract => ({
+        ...contract,
+        clientName: getClientName(contract.clientId),
+        commission: contract.commission != null ? String(contract.commission).replace('.', ',') : '',
+    }));
+
+    const headers: Record<string, string> = {
+        'id': 'ID Contratto',
+        'clientName': 'Cliente',
+        'clientId': 'ID Cliente',
+        'type': 'Tipo',
+        'provider': 'Fornitore',
+        'contractCode': 'Codice Contratto',
+        'startDate': 'Data Inizio',
+        'endDate': 'Data Scadenza',
+        'commission': 'Provvigione (€)',
+        'pod': 'POD',
+        'pdr': 'PDR',
+        'fiberType': 'Tipo Fibra',
+        'supplyAddress.street': 'Indirizzo Fornitura - Via',
+        'supplyAddress.zipCode': 'Indirizzo Fornitura - CAP',
+        'supplyAddress.city': 'Indirizzo Fornitura - Comune',
+        'supplyAddress.state': 'Indirizzo Fornitura - Provincia',
+        'supplyAddress.country': 'Indirizzo Fornitura - Nazione',
+        'notes': 'Note',
+    };
+
+    const csvString = convertToCsv(dataToExport, headers);
+    downloadCsv(csvString, 'contratti.csv');
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="flex justify-between items-center mb-6">
@@ -368,6 +490,14 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                 Filtri Avanzati
                 {showAdvancedFilters ? <ChevronUpIcon className="h-5 w-5 ml-2" /> : <ChevronDownIcon className="h-5 w-5 ml-2" />}
               </button>
+               <button
+                  onClick={handleExportContracts}
+                  className="ml-4 flex items-center justify-center w-full sm:w-auto px-4 py-2 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-md text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+                  title="Esporta i contratti filtrati in formato CSV"
+                >
+                  <DocumentDownloadIcon className="h-5 w-5 mr-2" />
+                  Esporta
+                </button>
             </div>
           </div>
           {showAdvancedFilters && (

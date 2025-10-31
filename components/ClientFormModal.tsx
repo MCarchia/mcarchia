@@ -570,14 +570,14 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
                   
                   {formData.type === ContractType.Electricity && (
                     <div>
-                      <label htmlFor="pod" className="block text-sm font-medium text-slate-600">POD</label>
+                      <label htmlFor="pod" className="block text-sm font-medium text-slate-600">Codice POD</label>
                       <input type="text" id="pod" name="pod" value={formData.pod || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
                     </div>
                   )}
 
                   {formData.type === ContractType.Gas && (
                     <div>
-                      <label htmlFor="pdr" className="block text-sm font-medium text-slate-600">PDR</label>
+                      <label htmlFor="pdr" className="block text-sm font-medium text-slate-600">Codice PDR</label>
                       <input type="text" id="pdr" name="pdr" value={formData.pdr || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
                     </div>
                   )}
@@ -599,7 +599,7 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
                   </div>
                   <div className="md:col-span-2">
                     <label htmlFor="contract-notes" className="block text-sm font-medium text-slate-600">Note Contratto</label>
-                    <textarea id="contract-notes" name="notes" value={formData.notes || ''} onChange={handleChange} rows={2} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"></textarea>
+                    <textarea id="contract-notes" name="notes" value={formData.notes || ''} onChange={handleChange} rows={3} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"></textarea>
                   </div>
               </div>
             </fieldset>

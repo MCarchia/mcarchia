@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Client, Contract } from './types';
 import { ContractType } from './types';
@@ -196,7 +197,8 @@ const App: React.FC = () => {
                     console.error(err.message);
                 } else {
                     // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                    console.error("An unexpected error occurred while fetching credentials: " + String(err));
+                    // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
+                    console.error("An unexpected error occurred while fetching credentials:", err);
                 }
                 setLoginError("Impossibile caricare le credenziali. Controlla la connessione.");
                 setCredentials({ username: 'admin', password: 'admin' }); // Fallback
@@ -236,7 +238,8 @@ const App: React.FC = () => {
                 console.error(err.message);
             } else {
                 // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                console.error("An unexpected error occurred while saving credentials: " + String(err));
+                // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
+                console.error("An unexpected error occurred while saving credentials:", err);
             }
             setToast({ message: "Salvataggio credenziali fallito. Riprova.", type: 'error' });
         }
@@ -261,7 +264,8 @@ const App: React.FC = () => {
                 console.error(e.message);
             } else {
                 // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                console.error("An unexpected error occurred while fetching data: " + String(e));
+                // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
+                console.error("An unexpected error occurred while fetching data:", e);
             }
             setError("Si è verificato un errore nel caricamento dei dati. Riprova più tardi.");
         } finally {
@@ -307,7 +311,8 @@ const App: React.FC = () => {
                 console.error(e.message);
             } else {
                 // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                console.error("An unexpected error occurred while saving client: " + String(e));
+                // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
+                console.error("An unexpected error occurred while saving client:", e);
             }
             setToast({ message: "Salvataggio del cliente fallito.", type: 'error' });
         } finally {
@@ -336,7 +341,8 @@ const App: React.FC = () => {
                 console.error(e.message);
             } else {
                 // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                console.error("An unexpected error occurred while saving contract: " + String(e));
+                // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
+                console.error("An unexpected error occurred while saving contract:", e);
             }
             setToast({ message: "Salvataggio del contratto fallito.", type: 'error' });
         } finally {
@@ -382,7 +388,8 @@ const App: React.FC = () => {
                 console.error(e.message);
             } else {
                 // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                console.error("An unexpected error occurred during deletion: " + String(e));
+                // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
+                console.error("An unexpected error occurred during deletion:", e);
             }
             setToast({ message: errorMessage, type: 'error' });
         } finally {
@@ -403,7 +410,8 @@ const App: React.FC = () => {
                 console.error(e.message);
             } else {
                 // FIX: Changed to avoid potential type errors with console.error and provide more context.
-                console.error("An unexpected error occurred while adding provider: " + String(e));
+                // FIX: Changed string concatenation to a comma-separated argument to handle unknown error types safely.
+                console.error("An unexpected error occurred while adding provider:", e);
             }
             setToast({ message: "Aggiunta del fornitore fallita.", type: 'error' });
         }
