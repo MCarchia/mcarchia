@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Client, Contract } from './types';
 import { ContractType } from './types';
@@ -22,6 +20,7 @@ import ContractChart from './components/ContractChart';
 import CommissionChart from './components/CommissionChart';
 import EnergyProviderPieChart from './components/EnergyProviderPieChart';
 import TelephonyProviderPieChart from './components/TelephonyProviderPieChart';
+import PaidStatusPieChart from './components/PaidStatusPieChart';
 import SearchModal from './components/SearchModal';
 import { MenuIcon, CheckCircleIcon, UserGroupIcon, ChartBarIcon, PlusIcon, TrashIcon, ExclamationIcon, DocumentDuplicateIcon, TrendingUpIcon } from './components/Icons';
 
@@ -192,8 +191,8 @@ const App: React.FC = () => {
                 const creds = await api.getCredentials();
                 setCredentials(creds);
             } catch (err: unknown) {
-                // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
-                console.error("Failed to fetch credentials:", err);
+                // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
+                console.error("Failed to fetch credentials:", String(err));
                 setLoginError("Impossibile caricare le credenziali. Controlla la connessione.");
                 setCredentials({ username: 'admin', password: 'admin' }); // Fallback
             } finally {
@@ -226,8 +225,8 @@ const App: React.FC = () => {
             setCredentials(newCreds);
             setToast({ message: "Credenziali salvate correttamente!", type: 'success' });
         } catch (err: unknown) {
-            // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
-            console.error("Failed to save credentials:", err);
+            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
+            console.error("Failed to save credentials:", String(err));
             setToast({ message: "Salvataggio credenziali fallito. Riprova.", type: 'error' });
         }
     };
@@ -246,8 +245,8 @@ const App: React.FC = () => {
             setContracts(contractsData);
             setProviders(providersData);
         } catch (e: unknown) {
-            // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
-            console.error("An unexpected error occurred while fetching data:", e);
+            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
+            console.error("An unexpected error occurred while fetching data:", String(e));
             setError("Si è verificato un errore nel caricamento dei dati. Riprova più tardi.");
         } finally {
             setIsLoading(false);
@@ -287,8 +286,8 @@ const App: React.FC = () => {
             setModal(null);
             await fetchData();
         } catch (e: unknown) {
-            // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
-            console.error("An unexpected error occurred while saving client:", e);
+            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
+            console.error("An unexpected error occurred while saving client:", String(e));
             setToast({ message: "Salvataggio del cliente fallito.", type: 'error' });
         } finally {
             setIsSaving(false);
@@ -311,8 +310,8 @@ const App: React.FC = () => {
             setModal(null);
             await fetchData();
         } catch (e: unknown) {
-            // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
-            console.error("An unexpected error occurred while saving contract:", e);
+            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
+            console.error("An unexpected error occurred while saving contract:", String(e));
             setToast({ message: "Salvataggio del contratto fallito.", type: 'error' });
         } finally {
             setIsSaving(false);
@@ -321,6 +320,22 @@ const App: React.FC = () => {
 
     const handleDeleteContract = (contractId: string) => {
         setItemToDelete({ type: 'contract', id: contractId });
+    };
+    
+    const handleToggleContractPaidStatus = async (contract: Contract) => {
+        const updatedContract = { ...contract, isPaid: !contract.isPaid };
+        try {
+            // Optimistic UI update
+            setContracts(prevContracts => prevContracts.map(c => c.id === updatedContract.id ? updatedContract : c));
+            await api.updateContract(updatedContract);
+            setToast({ message: "Stato pagamento aggiornato.", type: 'success' });
+        } catch (e: unknown) {
+            // Revert on error
+            setContracts(prevContracts => prevContracts.map(c => c.id === contract.id ? contract : c));
+            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
+            console.error("Failed to update paid status:", String(e));
+            setToast({ message: "Aggiornamento fallito.", type: 'error' });
+        }
     };
 
     const confirmDelete = async () => {
@@ -352,8 +367,8 @@ const App: React.FC = () => {
                 errorMessage = "Eliminazione del fornitore fallita.";
             }
             
-            // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
-            console.error("An unexpected error occurred during deletion:", e);
+            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
+            console.error("An unexpected error occurred during deletion:", String(e));
             setToast({ message: errorMessage, type: 'error' });
         } finally {
             setIsDeleting(false);
@@ -368,8 +383,8 @@ const App: React.FC = () => {
             setProviders(updatedProviders);
             setToast({ message: "Fornitore aggiunto con successo!", type: 'success' });
         } catch (e: unknown) {
-            // FIX: Simplified error logging to prevent potential type errors with unknown error objects.
-            console.error("An unexpected error occurred while adding provider:", e);
+            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
+            console.error("An unexpected error occurred while adding provider:", String(e));
             setToast({ message: "Aggiunta del fornitore fallita.", type: 'error' });
         }
     };
@@ -790,7 +805,8 @@ const App: React.FC = () => {
                             </div>
                            
                             {/* Provider Distribution Charts */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                               <PaidStatusPieChart contracts={contracts} />
                                <EnergyProviderPieChart contracts={energyContracts} />
                                <TelephonyProviderPieChart contracts={telephonyContracts} />
                             </div>
@@ -812,6 +828,7 @@ const App: React.FC = () => {
                             onAdd={() => setModal({ type: 'contract', data: null })} 
                             onEdit={(contract) => setModal({ type: 'contract', data: contract })} 
                             onDelete={handleDeleteContract}
+                            onTogglePaidStatus={handleToggleContractPaidStatus}
                             availableProviders={providers}
                             selectedProvider={contractListProvider}
                             onProviderChange={setContractListProvider}

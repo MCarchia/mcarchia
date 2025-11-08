@@ -15,6 +15,7 @@ export interface Contract {
   notes?: string;
   supplyAddress?: Address;
   commission?: number;
+  isPaid?: boolean;
   // Campi specifici per l'energia
   pod?: string;
   pdr?: string;

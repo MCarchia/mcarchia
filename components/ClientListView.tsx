@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { Client, Contract, Address } from '../types';
 import { ContractType } from '../types';
-import { PencilIcon, TrashIcon, PlusIcon, LightningBoltIcon, DeviceMobileIcon, UserGroupIcon, ChevronUpIcon, ChevronDownIcon, FireIcon, CalendarIcon, DocumentDuplicateIcon, ExclamationIcon, SearchIcon, FilterIcon, DocumentDownloadIcon } from './Icons';
+import { PencilIcon, TrashIcon, PlusIcon, LightningBoltIcon, DeviceMobileIcon, UserGroupIcon, ChevronUpIcon, ChevronDownIcon, FireIcon, CalendarIcon, DocumentDuplicateIcon, ExclamationIcon, SearchIcon, FilterIcon, DocumentDownloadIcon, CheckCircleIcon, CheckCircleSolidIcon } from './Icons';
 
 // --- CSV/Excel Export Utilities ---
 const escapeCell = (cell: any, delimiter: string): string => {
@@ -329,6 +329,7 @@ interface ContractListViewProps {
   onAdd: () => void;
   onEdit: (contract: Contract) => void;
   onDelete: (contractId: string) => void;
+  onTogglePaidStatus: (contract: Contract) => void;
   availableProviders: string[];
   selectedProvider: string;
   onProviderChange: (provider: string) => void;
@@ -353,6 +354,7 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
     onAdd, 
     onEdit, 
     onDelete,
+    onTogglePaidStatus,
     availableProviders,
     selectedProvider,
     onProviderChange,
@@ -470,6 +472,7 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
         ...contract,
         clientName: getClientName(contract.clientId),
         commission: contract.commission != null ? String(contract.commission).replace('.', ',') : '',
+        isPaid: contract.isPaid ? 'Sì' : 'No',
     }));
 
     const headers: Record<string, string> = {
@@ -482,6 +485,7 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
         'startDate': 'Data Inizio',
         'endDate': 'Data Scadenza',
         'commission': 'Provvigione (€)',
+        'isPaid': 'Pagato',
         'pod': 'POD',
         'pdr': 'PDR',
         'fiberType': 'Tipo Fibra',
@@ -600,6 +604,7 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                       {getSortIcon('endDate')}
                     </button>
                   </th>
+                  <th scope="col" className="px-6 py-3 text-center">Pagato</th>
                   <th scope="col" className="px-6 py-3 text-right">Azioni</th>
                 </tr>
               </thead>
@@ -622,7 +627,7 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                   }
 
                   return (
-                    <tr key={contract.id} className={`border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${expiring ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-white dark:bg-slate-800'}`}>
+                    <tr key={contract.id} className={`border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all ${ contract.isPaid ? 'bg-green-50 dark:bg-green-900/30 border-l-4 border-green-500' : expiring ? 'bg-amber-50 dark:bg-amber-900/30 border-l-4 border-amber-400' : 'bg-white dark:bg-slate-800 border-l-4 border-transparent'}`}>
                       <td className="px-6 py-4 align-top">
                         {contract.type === ContractType.Electricity ? (
                           <LightningBoltIcon className="h-5 w-5 text-yellow-500" title="Energia Elettrica" />
@@ -632,10 +637,10 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                           <DeviceMobileIcon className="h-5 w-5 text-sky-500" title="Telefonia" />
                         )}
                       </td>
-                      <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap align-top">{getClientName(contract.clientId)}</td>
+                      <td className={`px-6 py-4 font-medium whitespace-nowrap align-top transition-colors ${contract.isPaid ? 'text-green-600 dark:text-green-500' : 'text-slate-900 dark:text-slate-100'}`}>{getClientName(contract.clientId)}</td>
                       <td className="px-6 py-4 align-top">{contract.provider}</td>
                       <td className="px-6 py-4 text-xs align-top">{formatAddress(contract.supplyAddress)}</td>
-                      <td className="px-6 py-4 align-top font-semibold text-slate-700 dark:text-slate-200">
+                      <td className={`px-6 py-4 align-top font-semibold transition-colors ${contract.isPaid ? 'text-green-600 dark:text-green-500' : 'text-slate-700 dark:text-slate-200'}`}>
                         {contract.commission != null ? contract.commission.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' }) : 'N/D'}
                       </td>
                       <td className={`px-6 py-4 font-semibold align-top ${dateColor}`}>
@@ -643,6 +648,16 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                           {expiring && <ExclamationIcon className="h-4 w-4 text-amber-500 mr-1.5 flex-shrink-0" />}
                           <span>{contract.endDate ? new Date(contract.endDate).toLocaleDateString('it-IT') : 'N/D'}</span>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 align-top text-center">
+                        <button 
+                            onClick={() => onTogglePaidStatus(contract)} 
+                            className={`p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 ${contract.isPaid ? 'text-green-500 hover:text-green-700 focus:ring-green-500 dark:focus:ring-offset-slate-800' : 'text-slate-400 hover:text-slate-600 focus:ring-sky-500 dark:focus:ring-offset-slate-800'}`}
+                            title={contract.isPaid ? "Segna come non pagato" : "Segna come pagato"}
+                            aria-label={contract.isPaid ? "Segna contratto come non pagato" : "Segna contratto come pagato"}
+                        >
+                            {contract.isPaid ? <CheckCircleSolidIcon className="h-6 w-6" /> : <CheckCircleIcon className="h-6 w-6" />}
+                        </button>
                       </td>
                       <td className="px-6 py-4 text-right align-top">
                           <div className="flex items-center justify-end space-x-2">

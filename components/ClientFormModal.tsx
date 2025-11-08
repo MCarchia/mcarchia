@@ -393,6 +393,7 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
     pod: '',
     pdr: '',
     commission: '',
+    isPaid: false,
     fiberType: '',
     supplyAddress: { street: '', zipCode: '', city: '', state: '', country: 'Italia' },
   });
@@ -425,6 +426,7 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
             pod: contract.pod || '',
             pdr: contract.pdr || '',
             commission: contract.commission != null ? String(contract.commission) : '',
+            isPaid: contract.isPaid || false,
             fiberType: contract.fiberType || '',
             supplyAddress: { ...getInitialFormData().supplyAddress, ...(contract.supplyAddress || {}) },
         });
@@ -596,6 +598,19 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
                   <div>
                     <label htmlFor="endDate" className="block text-sm font-medium text-slate-600">Data Scadenza (Opzionale)</label>
                     <input type="date" id="endDate" name="endDate" value={formData.endDate || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                  </div>
+                   <div className="md:col-span-2 flex items-center pt-2">
+                    <input
+                      type="checkbox"
+                      id="isPaid"
+                      name="isPaid"
+                      checked={!!formData.isPaid}
+                      onChange={(e) => setFormData(prev => ({ ...prev, isPaid: e.target.checked }))}
+                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                    />
+                    <label htmlFor="isPaid" className="ml-3 block text-sm font-medium text-slate-700">
+                      Provvigione Pagata
+                    </label>
                   </div>
                   <div className="md:col-span-2">
                     <label htmlFor="contract-notes" className="block text-sm font-medium text-slate-600">Note Contratto</label>
