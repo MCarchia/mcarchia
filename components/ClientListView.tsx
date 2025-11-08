@@ -372,7 +372,12 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
   
   const getClientName = (clientId: string) => {
     const client = clients.find(c => c.id === clientId);
-    return client ? `${client.lastName} ${client.firstName}` : 'N/D';
+    if (!client) return 'N/D';
+    let displayName = `${client.lastName} ${client.firstName}`;
+    if (client.ragioneSociale) {
+      displayName += ` (${client.ragioneSociale})`;
+    }
+    return displayName;
   };
 
   const isExpiringSoon = (endDateStr?: string): boolean => {
@@ -637,7 +642,26 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                           <DeviceMobileIcon className="h-5 w-5 text-sky-500" title="Telefonia" />
                         )}
                       </td>
-                      <td className={`px-6 py-4 font-medium whitespace-nowrap align-top transition-colors ${contract.isPaid ? 'text-green-600 dark:text-green-500' : 'text-slate-900 dark:text-slate-100'}`}>{getClientName(contract.clientId)}</td>
+                      <td className="px-6 py-4 font-medium whitespace-nowrap align-top">
+                        {(() => {
+                          const client = clients.find(c => c.id === contract.clientId);
+                          if (!client) {
+                            return <span className={`transition-colors ${contract.isPaid ? 'text-green-600 dark:text-green-500' : 'text-slate-900 dark:text-slate-100'}`}>N/D</span>;
+                          }
+                          return (
+                            <div>
+                              <div className={`font-semibold transition-colors ${contract.isPaid ? 'text-green-600 dark:text-green-500' : 'text-slate-900 dark:text-slate-100'}`}>
+                                {`${client.lastName} ${client.firstName}`}
+                              </div>
+                              {client.ragioneSociale && (
+                                <div className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                                  {client.ragioneSociale}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td className="px-6 py-4 align-top">{contract.provider}</td>
                       <td className="px-6 py-4 text-xs align-top">{formatAddress(contract.supplyAddress)}</td>
                       <td className={`px-6 py-4 align-top font-semibold transition-colors ${contract.isPaid ? 'text-green-600 dark:text-green-500' : 'text-slate-700 dark:text-slate-200'}`}>

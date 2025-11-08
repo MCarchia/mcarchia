@@ -507,7 +507,12 @@ const App: React.FC = () => {
 
     const getClientName = useCallback((clientId: string) => {
         const client = clients.find(c => c.id === clientId);
-        return client ? `${client.firstName} ${client.lastName}` : 'N/D';
+        if (!client) return 'N/D';
+        let displayName = `${client.lastName} ${client.firstName}`;
+        if (client.ragioneSociale) {
+            displayName += ` (${client.ragioneSociale})`;
+        }
+        return displayName;
     }, [clients]);
 
     const handleSearchClientClick = (client: Client) => {
