@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { Client, Contract, Address } from '../types';
 import { ContractType } from '../types';
@@ -478,6 +479,7 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
         clientName: getClientName(contract.clientId),
         commission: contract.commission != null ? String(contract.commission).replace('.', ',') : '',
         isPaid: contract.isPaid ? 'Sì' : 'No',
+        kw: contract.kw != null ? String(contract.kw).replace('.', ',') : '',
     }));
 
     const headers: Record<string, string> = {
@@ -492,6 +494,8 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
         'commission': 'Provvigione (€)',
         'isPaid': 'Pagato',
         'pod': 'POD',
+        'kw': 'Potenza (kW)',
+        'volt': 'Voltaggio (V)',
         'pdr': 'PDR',
         'fiberType': 'Tipo Fibra',
         'supplyAddress.street': 'Indirizzo Fornitura - Via',

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Client, Contract, Iban } from '../types';
 import { ContractType } from '../types';
@@ -391,6 +392,8 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
     endDate: '',
     notes: '',
     pod: '',
+    kw: '', // Nuovo campo
+    volt: '', // Nuovo campo
     pdr: '',
     commission: '',
     isPaid: false,
@@ -400,6 +403,7 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
 
   const [formData, setFormData] = useState(getInitialFormData());
   const [showNewProviderInput, setShowNewProviderInput] = useState(false);
+  const [showNewVoltInput, setShowNewVoltInput] = useState(false);
 
   const sortedClients = useMemo(() => {
     return [...clients].sort((a, b) => {
@@ -410,6 +414,8 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
         return (a.firstName || '').localeCompare(b.firstName || '');
     });
   }, [clients]);
+
+  const standardVolts = ['230', '400', '20.000'];
 
   useEffect(() => {
     if (isOpen) {
@@ -424,6 +430,8 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
             endDate: contract.endDate || '',
             notes: contract.notes || '',
             pod: contract.pod || '',
+            kw: contract.kw != null ? String(contract.kw) : '',
+            volt: contract.volt || '',
             pdr: contract.pdr || '',
             commission: contract.commission != null ? String(contract.commission) : '',
             isPaid: contract.isPaid || false,
@@ -436,11 +444,20 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
         } else {
             setShowNewProviderInput(false);
         }
+
+        // Logic per Custom Volt
+        if (contract.volt && !standardVolts.includes(contract.volt)) {
+            setShowNewVoltInput(true);
+        } else {
+            setShowNewVoltInput(false);
+        }
+
       } else {
         const initialData = getInitialFormData();
         initialData.clientId = sortedClients[0]?.id || '';
         setFormData(initialData);
         setShowNewProviderInput(false);
+        setShowNewVoltInput(false);
       }
     }
   }, [contract, isOpen, providers, sortedClients]);
@@ -472,6 +489,17 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
     }
   };
 
+  const handleVoltSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+      if (value === 'add_new') {
+          setShowNewVoltInput(true);
+          setFormData(prev => ({ ...prev, volt: '' }));
+      } else {
+          setShowNewVoltInput(false);
+          setFormData(prev => ({ ...prev, volt: value }));
+      }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if(isSaving) return;
@@ -484,11 +512,12 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
     }
     
     if (formData.clientId && trimmedProvider) {
-      const { commission, ...rest } = formData;
+      const { commission, kw, ...rest } = formData;
       onSave({
         ...rest,
         provider: trimmedProvider,
-        commission: commission ? parseFloat(commission) : undefined
+        commission: commission ? parseFloat(commission) : undefined,
+        kw: kw ? parseFloat(kw) : undefined,
       });
     } else {
       alert("Cliente e Fornitore sono campi obbligatori.");
@@ -571,10 +600,45 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
                   </div>
                   
                   {formData.type === ContractType.Electricity && (
-                    <div>
-                      <label htmlFor="pod" className="block text-sm font-medium text-slate-600">Codice POD</label>
-                      <input type="text" id="pod" name="pod" value={formData.pod || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
-                    </div>
+                    <>
+                        <div>
+                            <label htmlFor="pod" className="block text-sm font-medium text-slate-600">Codice POD</label>
+                            <input type="text" id="pod" name="pod" value={formData.pod || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                        </div>
+                        <div>
+                            <label htmlFor="kw" className="block text-sm font-medium text-slate-600">Potenza (kW)</label>
+                            <input type="number" id="kw" name="kw" value={formData.kw || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" step="0.1" min="0" />
+                        </div>
+                        <div>
+                            <label htmlFor="volt-select" className="block text-sm font-medium text-slate-600">Voltaggio (V)</label>
+                             <div className="mt-1">
+                                <select
+                                    id="volt-select"
+                                    name="volt-select"
+                                    value={showNewVoltInput ? 'add_new' : formData.volt}
+                                    onChange={handleVoltSelectChange}
+                                    className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                                >
+                                    <option value="">Seleziona voltaggio</option>
+                                    {standardVolts.map(v => <option key={v} value={v}>{v}</option>)}
+                                    <option value="add_new">-- Altro --</option>
+                                </select>
+                                {showNewVoltInput && (
+                                    <div className="mt-2 animate-fade-in">
+                                        <input
+                                            type="text"
+                                            name="volt"
+                                            value={formData.volt}
+                                            onChange={handleChange}
+                                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                                            placeholder="Specifica voltaggio"
+                                            autoFocus
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </>
                   )}
 
                   {formData.type === ContractType.Gas && (

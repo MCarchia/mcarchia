@@ -1,3 +1,4 @@
+
 export enum ContractType {
   Electricity = 'electricity',
   Gas = 'gas',
@@ -18,6 +19,8 @@ export interface Contract {
   isPaid?: boolean;
   // Campi specifici per l'energia
   pod?: string;
+  kw?: number;   // Potenza impegnata
+  volt?: string; // Voltaggio
   pdr?: string;
   // Campi specifici per la telefonia
   fiberType?: string;

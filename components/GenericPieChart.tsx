@@ -1,5 +1,3 @@
-
-
 import React, { useMemo } from 'react';
 import type { Contract } from '../types';
 
@@ -77,7 +75,8 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
       return acc;
     }, {});
 
-    const sortedProviders = Object.entries(providerCounts).sort(([, countA], [, countB]) => countB - countA);
+    // FIX: Explicitly cast count values to number to satisfy TypeScript arithmetic requirements
+    const sortedProviders = Object.entries(providerCounts).sort(([, countA], [, countB]) => (countB as number) - (countA as number));
     
     const total = contracts.length;
     
@@ -87,14 +86,15 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
     };
 
     const result = sortedProviders.reduce((acc, [name, count], index) => {
-      const percentage = (count / total) * 100;
+      const countNum = count as number;
+      const percentage = (countNum / total) * 100;
       const angle = (percentage / 100) * (2 * Math.PI);
       const startAngle = acc.cumulativeAngle;
       const endAngle = startAngle + angle;
       
       const newProvider = {
           name,
-          count,
+          count: countNum,
           percentage: percentage.toFixed(1),
           color: colors[index % colors.length],
           path: getArcPath(50, 50, 50, startAngle, endAngle),
