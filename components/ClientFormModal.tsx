@@ -392,9 +392,11 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
     endDate: '',
     notes: '',
     pod: '',
-    kw: '', // Nuovo campo
-    volt: '', // Nuovo campo
+    kw: '',
+    volt: '',
     pdr: '',
+    remi: '', // Nuovo campo
+    meterSerial: '', // Nuovo campo
     commission: '',
     isPaid: false,
     fiberType: '',
@@ -433,6 +435,8 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
             kw: contract.kw != null ? String(contract.kw) : '',
             volt: contract.volt || '',
             pdr: contract.pdr || '',
+            remi: contract.remi || '',
+            meterSerial: contract.meterSerial || '',
             commission: contract.commission != null ? String(contract.commission) : '',
             isPaid: contract.isPaid || false,
             fiberType: contract.fiberType || '',
@@ -638,14 +642,28 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
                                 )}
                             </div>
                         </div>
+                        <div>
+                            <label htmlFor="meterSerial" className="block text-sm font-medium text-slate-600">Matricola Contatore</label>
+                            <input type="text" id="meterSerial" name="meterSerial" value={formData.meterSerial || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                        </div>
                     </>
                   )}
 
                   {formData.type === ContractType.Gas && (
-                    <div>
-                      <label htmlFor="pdr" className="block text-sm font-medium text-slate-600">Codice PDR</label>
-                      <input type="text" id="pdr" name="pdr" value={formData.pdr || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
-                    </div>
+                    <>
+                        <div>
+                        <label htmlFor="pdr" className="block text-sm font-medium text-slate-600">Codice PDR</label>
+                        <input type="text" id="pdr" name="pdr" value={formData.pdr || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                        </div>
+                        <div>
+                            <label htmlFor="remi" className="block text-sm font-medium text-slate-600">Codice Remi</label>
+                            <input type="text" id="remi" name="remi" value={formData.remi || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                        </div>
+                        <div>
+                            <label htmlFor="meterSerial" className="block text-sm font-medium text-slate-600">Matricola Contatore</label>
+                            <input type="text" id="meterSerial" name="meterSerial" value={formData.meterSerial || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                        </div>
+                    </>
                   )}
 
                   {formData.type === ContractType.Telephony && (

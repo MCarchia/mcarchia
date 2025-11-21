@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore } from "firebase/firestore";
 
 // Configurazione dell'app web da Firebase.
 const firebaseConfig = {
@@ -15,4 +15,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Esporta l'istanza di Firestore da usare in tutta l'app
-export const db = getFirestore(app);
+// Utilizziamo initializeFirestore invece di getFirestore per passare opzioni aggiuntive
+export const db = initializeFirestore(app, {
+  ignoreUndefinedProperties: true
+});

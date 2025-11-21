@@ -497,6 +497,8 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
         'kw': 'Potenza (kW)',
         'volt': 'Voltaggio (V)',
         'pdr': 'PDR',
+        'remi': 'Codice Remi',
+        'meterSerial': 'Matricola Contatore',
         'fiberType': 'Tipo Fibra',
         'supplyAddress.street': 'Indirizzo Fornitura - Via',
         'supplyAddress.zipCode': 'Indirizzo Fornitura - CAP',

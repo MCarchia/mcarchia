@@ -21,7 +21,11 @@ export interface Contract {
   pod?: string;
   kw?: number;   // Potenza impegnata
   volt?: string; // Voltaggio
+  // Campi specifici per il gas
   pdr?: string;
+  remi?: string; // Codice Remi
+  // Campi comuni energia/gas
+  meterSerial?: string; // Matricola Contatore
   // Campi specifici per la telefonia
   fiberType?: string;
 }

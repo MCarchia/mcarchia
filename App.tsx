@@ -190,7 +190,7 @@ const App: React.FC = () => {
             try {
                 const creds = await api.getCredentials();
                 setCredentials(creds);
-            } catch (err: unknown) {
+            } catch (err: any) {
                 // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
                 console.error("Failed to fetch credentials:", String(err));
                 setLoginError("Impossibile caricare le credenziali. Controlla la connessione.");
@@ -224,7 +224,7 @@ const App: React.FC = () => {
             await api.updateCredentials(newCreds);
             setCredentials(newCreds);
             setToast({ message: "Credenziali salvate correttamente!", type: 'success' });
-        } catch (err: unknown) {
+        } catch (err: any) {
             // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
             console.error("Failed to save credentials:", String(err));
             setToast({ message: "Salvataggio credenziali fallito. Riprova.", type: 'error' });
@@ -244,7 +244,7 @@ const App: React.FC = () => {
             setClients(clientsData);
             setContracts(contractsData);
             setProviders(providersData);
-        } catch (e: unknown) {
+        } catch (e: any) {
             // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
             console.error("An unexpected error occurred while fetching data:", String(e));
             setError("Si è verificato un errore nel caricamento dei dati. Riprova più tardi.");
@@ -285,7 +285,7 @@ const App: React.FC = () => {
             }
             setModal(null);
             await fetchData();
-        } catch (e: unknown) {
+        } catch (e: any) {
             // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
             console.error("An unexpected error occurred while saving client:", String(e));
             setToast({ message: "Salvataggio del cliente fallito.", type: 'error' });
@@ -309,7 +309,7 @@ const App: React.FC = () => {
             }
             setModal(null);
             await fetchData();
-        } catch (e: unknown) {
+        } catch (e: any) {
             // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
             console.error("An unexpected error occurred while saving contract:", String(e));
             setToast({ message: "Salvataggio del contratto fallito.", type: 'error' });
@@ -329,7 +329,7 @@ const App: React.FC = () => {
             setContracts(prevContracts => prevContracts.map(c => c.id === updatedContract.id ? updatedContract : c));
             await api.updateContract(updatedContract);
             setToast({ message: "Stato pagamento aggiornato.", type: 'success' });
-        } catch (e: unknown) {
+        } catch (e: any) {
             // Revert on error
             setContracts(prevContracts => prevContracts.map(c => c.id === contract.id ? contract : c));
             // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
@@ -343,21 +343,24 @@ const App: React.FC = () => {
 
         setIsDeleting(true);
         try {
+            // FIX: Cast itemToDelete.id to string to prevent 'unknown' type errors if inference fails.
+            const id = String(itemToDelete.id);
+
             if (itemToDelete.type === 'client') {
-                await api.deleteClient(itemToDelete.id);
+                await api.deleteClient(id);
                 setClients(prevClients => prevClients.filter(client => client.id !== itemToDelete.id));
                 setContracts(prevContracts => prevContracts.filter(contract => contract.clientId !== itemToDelete.id));
                 setToast({ message: "Cliente eliminato con successo!", type: 'success' });
             } else if (itemToDelete.type === 'contract') {
-                await api.deleteContract(itemToDelete.id);
+                await api.deleteContract(id);
                 setContracts(prevContracts => prevContracts.filter(contract => contract.id !== itemToDelete.id));
                 setToast({ message: "Contratto eliminato con successo!", type: 'success' });
             } else if (itemToDelete.type === 'provider') {
-                const updatedProviders = await api.deleteProvider(itemToDelete.id);
+                const updatedProviders = await api.deleteProvider(id);
                 setProviders(updatedProviders);
                 setToast({ message: "Fornitore eliminato con successo!", type: 'success' });
             }
-        } catch (e: unknown) {
+        } catch (e: any) {
             let errorMessage = "Eliminazione fallita.";
             if (itemToDelete.type === 'client') {
                 errorMessage = "Eliminazione del cliente fallita.";
@@ -382,7 +385,7 @@ const App: React.FC = () => {
             const updatedProviders = await api.addProvider(newProvider);
             setProviders(updatedProviders);
             setToast({ message: "Fornitore aggiunto con successo!", type: 'success' });
-        } catch (e: unknown) {
+        } catch (e: any) {
             // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
             console.error("An unexpected error occurred while adding provider:", String(e));
             setToast({ message: "Aggiunta del fornitore fallita.", type: 'error' });
