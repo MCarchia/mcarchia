@@ -9,6 +9,7 @@ export interface Contract {
   id: string;
   clientId: string;
   type: ContractType;
+  customerType?: 'residential' | 'business'; // Nuovo campo: Residenziale o Business
   provider: string;
   contractCode: string;
   startDate: string;

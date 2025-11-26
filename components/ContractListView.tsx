@@ -334,6 +334,13 @@ interface ContractListViewProps {
   availableProviders: string[];
   selectedProvider: string;
   onProviderChange: (provider: string) => void;
+  
+  availableYears: string[];
+  selectedYear: string;
+  onYearChange: (year: string) => void;
+  selectedMonth: string;
+  onMonthChange: (month: string) => void;
+
   startDateFrom: string;
   onStartDateFromChange: (date: string) => void;
   startDateTo: string;
@@ -359,6 +366,13 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
     availableProviders,
     selectedProvider,
     onProviderChange,
+
+    availableYears,
+    selectedYear,
+    onYearChange,
+    selectedMonth,
+    onMonthChange,
+
     startDateFrom,
     onStartDateFromChange,
     startDateTo,
@@ -462,13 +476,15 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
   
   const handleResetFilters = () => {
     onProviderChange('all');
+    onYearChange('all');
+    onMonthChange('all');
     onStartDateFromChange('');
     onStartDateToChange('');
     onEndDateFromChange('');
     onEndDateToChange('');
   };
 
-  const hasActiveFilters = selectedProvider !== 'all' || startDateFrom || startDateTo || endDateFrom || endDateTo;
+  const hasActiveFilters = selectedProvider !== 'all' || selectedYear !== 'all' || selectedMonth !== 'all' || startDateFrom || startDateTo || endDateFrom || endDateTo;
 
   const handleExportContracts = (format: 'csv' | 'excel') => {
     const delimiter = format === 'excel' ? ';' : ',';
@@ -477,6 +493,7 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
     const dataToExport = sortedContracts.map(contract => ({
         ...contract,
         clientName: getClientName(contract.clientId),
+        customerType: contract.customerType === 'business' ? 'Business' : 'Residenziale',
         commission: contract.commission != null ? String(contract.commission).replace('.', ',') : '',
         isPaid: contract.isPaid ? 'Sì' : 'No',
         kw: contract.kw != null ? String(contract.kw).replace('.', ',') : '',
@@ -487,6 +504,7 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
         'clientName': 'Cliente',
         'clientId': 'ID Cliente',
         'type': 'Tipo',
+        'customerType': 'Tipologia', // Nuova colonna
         'provider': 'Fornitore',
         'contractCode': 'Codice Contratto',
         'startDate': 'Data Inizio',
@@ -512,6 +530,15 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
     downloadFile(csvString, filename);
   };
 
+  const months = [
+    { value: '1', name: 'Gennaio' }, { value: '2', name: 'Febbraio' },
+    { value: '3', name: 'Marzo' }, { value: '4', name: 'Aprile' },
+    { value: '5', name: 'Maggio' }, { value: '6', name: 'Giugno' },
+    { value: '7', name: 'Luglio' }, { value: '8', name: 'Agosto' },
+    { value: '9', name: 'Settembre' }, { value: '10', name: 'Ottobre' },
+    { value: '11', name: 'Novembre' }, { value: '12', name: 'Dicembre' },
+  ];
+
   return (
     <div className="animate-fade-in">
       <div className="flex justify-between items-center mb-6">
@@ -528,8 +555,8 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
       </div>
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
         <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
               <label htmlFor="provider-filter" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
                 Filtra fornitore
               </label>
@@ -547,6 +574,44 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                 ))}
               </select>
             </div>
+            <div>
+              <label htmlFor="year-filter" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                Anno Stipula
+              </label>
+              <select
+                id="year-filter"
+                value={selectedYear}
+                onChange={(e) => onYearChange(e.target.value)}
+                className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 focus:outline-none focus:ring-sky-500 focus:border-sky-500 text-sm rounded-md"
+              >
+                <option value="all">Tutti gli anni</option>
+                {availableYears.map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+                <label htmlFor="month-filter" className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    Mese Stipula
+                </label>
+                <select
+                    id="month-filter"
+                    value={selectedMonth}
+                    onChange={(e) => onMonthChange(e.target.value)}
+                    className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 focus:outline-none focus:ring-sky-500 focus:border-sky-500 text-sm rounded-md"
+                >
+                    <option value="all">Tutti i mesi</option>
+                    {months.map((m) => (
+                        <option key={m.value} value={m.value}>{m.name}</option>
+                    ))}
+                </select>
+            </div>
+          </div>
+          
+          <div className="flex justify-between items-center pt-2">
+            <div className="text-sm text-slate-500 dark:text-slate-400 italic">
+                {sortedContracts.length} contratti trovati
+            </div>
             <div className="flex items-end space-x-4">
               <button
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
@@ -559,11 +624,12 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
               <ExportButton onExport={handleExportContracts} title="Esporta elenco contratti filtrati" />
             </div>
           </div>
+
           {showAdvancedFilters && (
             <div className="pt-4 border-t border-slate-200 dark:border-slate-600 animate-fade-in-down">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Data Inizio Contratto</label>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Data Inizio Contratto (Range)</label>
                   <div className="flex items-center space-x-2">
                     <input type="date" value={startDateFrom} onChange={e => onStartDateFromChange(e.target.value)} className="block w-full text-sm px-3 py-1.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md focus:outline-none focus:ring-sky-500 focus:border-sky-500" aria-label="Data inizio da" />
                     <span className="text-slate-500 dark:text-slate-400">→</span>
@@ -571,7 +637,7 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Data Scadenza Contratto</label>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Data Scadenza Contratto (Range)</label>
                   <div className="flex items-center space-x-2">
                     <input type="date" value={endDateFrom} onChange={e => onEndDateFromChange(e.target.value)} className="block w-full text-sm px-3 py-1.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md focus:outline-none focus:ring-sky-500 focus:border-sky-500" aria-label="Data scadenza da" />
                     <span className="text-slate-500 dark:text-slate-400">→</span>
@@ -638,15 +704,26 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                   }
 
                   return (
-                    <tr key={contract.id} className={`border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all ${ contract.isPaid ? 'bg-green-50 dark:bg-green-900/30 border-l-4 border-green-500' : expiring ? 'bg-amber-50 dark:bg-amber-900/30 border-l-4 border-amber-400' : 'bg-white dark:bg-slate-800 border-l-4 border-transparent'}`}>
+                    <tr key={contract.id} className={`border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all ${ 
+                        expired ? 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500' : 
+                        expiring ? 'bg-amber-50 dark:bg-amber-900/30 border-l-4 border-amber-400' : 
+                        contract.isPaid ? 'bg-green-50 dark:bg-green-900/30 border-l-4 border-green-500' : 
+                        'bg-white dark:bg-slate-800 border-l-4 border-transparent'
+                    }`}>
                       <td className="px-6 py-4 align-top">
-                        {contract.type === ContractType.Electricity ? (
-                          <LightningBoltIcon className="h-5 w-5 text-yellow-500" title="Energia Elettrica" />
-                        ) : contract.type === ContractType.Gas ? (
-                          <FireIcon className="h-5 w-5 text-orange-500" title="Gas Naturale" />
-                        ) : (
-                          <DeviceMobileIcon className="h-5 w-5 text-sky-500" title="Telefonia" />
-                        )}
+                        <div className="flex flex-col items-center">
+                            {contract.type === ContractType.Electricity ? (
+                            <LightningBoltIcon className="h-5 w-5 text-yellow-500 mb-1" title="Energia Elettrica" />
+                            ) : contract.type === ContractType.Gas ? (
+                            <FireIcon className="h-5 w-5 text-orange-500 mb-1" title="Gas Naturale" />
+                            ) : (
+                            <DeviceMobileIcon className="h-5 w-5 text-sky-500 mb-1" title="Telefonia" />
+                            )}
+                            {/* Visualizza tipo Residenziale/Business */}
+                            <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${contract.customerType === 'business' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
+                                {contract.customerType === 'business' ? 'Bus.' : 'Res.'}
+                            </span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 font-medium whitespace-nowrap align-top">
                         {(() => {
@@ -664,6 +741,13 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                                   {client.ragioneSociale}
                                 </div>
                               )}
+                              {/* Visualizzazione CF o P.IVA in base al tipo cliente */}
+                              <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 font-mono">
+                                {contract.customerType === 'business' && client.pIva 
+                                    ? `P.IVA: ${client.pIva}` 
+                                    : (client.codiceFiscale ? `CF: ${client.codiceFiscale}` : '')
+                                }
+                              </div>
                             </div>
                           );
                         })()}
@@ -684,9 +768,14 @@ export const ContractListView: React.FC<ContractListViewProps> = ({
                         {contract.commission != null ? contract.commission.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' }) : 'N/D'}
                       </td>
                       <td className={`px-6 py-4 font-semibold align-top ${dateColor}`}>
-                        <div className="flex items-center">
-                          {expiring && <ExclamationIcon className="h-4 w-4 text-amber-500 mr-1.5 flex-shrink-0" />}
-                          <span>{contract.endDate ? new Date(contract.endDate).toLocaleDateString('it-IT') : 'N/D'}</span>
+                        <div className="flex flex-col">
+                            <div className="flex items-center">
+                              {expiring && !expired && <ExclamationIcon className="h-4 w-4 text-amber-500 mr-1.5 flex-shrink-0" />}
+                              {expired && <ExclamationIcon className="h-4 w-4 text-red-500 mr-1.5 flex-shrink-0" />}
+                              <span>{contract.endDate ? new Date(contract.endDate).toLocaleDateString('it-IT') : 'N/D'}</span>
+                            </div>
+                            {expiring && !expired && <span className="text-[10px] uppercase font-bold text-amber-600 bg-amber-100 dark:bg-amber-900/50 dark:text-amber-400 px-1.5 py-0.5 rounded w-fit mt-1">In Scadenza</span>}
+                            {expired && <span className="text-[10px] uppercase font-bold text-red-600 bg-red-100 dark:bg-red-900/50 dark:text-red-400 px-1.5 py-0.5 rounded w-fit mt-1">Scaduto</span>}
                         </div>
                       </td>
                       <td className="px-6 py-4 align-top text-center">

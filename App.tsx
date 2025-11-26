@@ -1,384 +1,305 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import type { Client, Contract } from './types';
-import { ContractType } from './types';
+import React, { useState, useEffect, useMemo } from 'react';
 import * as api from './services/api';
-
-// Components
+import { Client, Contract, ContractType } from './types';
 import Sidebar from './components/Sidebar';
-import { ClientListView, ContractListView } from './components/ClientListView';
+import { ClientListView } from './components/ClientListView';
+import { ContractListView } from './components/ContractListView';
 import { ClientFormModal, ContractFormModal } from './components/ClientFormModal';
 import ConfirmationModal from './components/ConfirmationModal';
-import { Spinner } from './components/Spinner';
-import ExpiringContractsWidget from './components/ExpiringContractsWidget';
-import CombinedTotalsWidget from './components/CombinedTotalsWidget';
-import CurrentMonthCommissionWidget from './components/CurrentMonthCommissionWidget';
-import CommissionSummaryWidget from './components/CommissionSummaryWidget';
-import TotalProvidersWidget from './components/TotalProvidersWidget';
+import SearchModal from './components/SearchModal';
+import GlobalSearchBar from './components/GlobalSearchBar';
+import { MenuIcon, SearchIcon, EyeIcon, EyeOffIcon } from './components/Icons';
+import Login from './components/Login';
+
+// Dashboard widgets
 import ClientChart from './components/ClientChart';
 import ContractChart from './components/ContractChart';
 import CommissionChart from './components/CommissionChart';
+import CommissionSummaryWidget from './components/CommissionSummaryWidget';
+import CurrentMonthCommissionWidget from './components/CurrentMonthCommissionWidget';
+import CombinedTotalsWidget from './components/CombinedTotalsWidget';
+import TotalProvidersWidget from './components/TotalProvidersWidget';
+import PaidStatusPieChart from './components/PaidStatusPieChart';
 import EnergyProviderPieChart from './components/EnergyProviderPieChart';
 import TelephonyProviderPieChart from './components/TelephonyProviderPieChart';
-import PaidStatusPieChart from './components/PaidStatusPieChart';
-import SearchModal from './components/SearchModal';
-import { MenuIcon, CheckCircleIcon, UserGroupIcon, ChartBarIcon, PlusIcon, TrashIcon, ExclamationIcon, DocumentDuplicateIcon, TrendingUpIcon } from './components/Icons';
+import ExpiringContractsWidget from './components/ExpiringContractsWidget';
+import { Spinner } from './components/Spinner';
 
-type View = 'dashboard' | 'contracts' | 'clients' | 'settings';
-type ModalState = { type: 'client' | 'contract'; data: Client | Contract | null } | null;
-type ToastState = { message: string; type: 'success' | 'error' } | null;
+// Simple Toast Component (internal)
+const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
+    <div className={`fixed bottom-4 right-4 px-6 py-3 rounded shadow-lg text-white z-50 flex items-center ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+        <span>{message}</span>
+        <button onClick={onClose} className="ml-4 font-bold">×</button>
+    </div>
+);
 
-
-// --- Componente Notifica (Toast) ---
-const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () => void }> = ({ message, type, onClose }) => {
-    useEffect(() => {
-        const timer = setTimeout(onClose, 5000); // 5 seconds for better readability
-        return () => clearTimeout(timer);
-    }, [onClose]);
-
-    const isSuccess = type === 'success';
-    const bgColor = isSuccess ? 'bg-green-500' : 'bg-red-500';
-    const icon = isSuccess ? <CheckCircleIcon className="h-5 w-5 mr-2" /> : <ExclamationIcon className="h-5 w-5 mr-2" />;
-
-    return (
-        <div className={`fixed top-5 right-5 z-50 ${bgColor} text-white py-2 px-4 rounded-lg shadow-lg flex items-center animate-fade-in-down`}>
-            {icon}
-            <span>{message}</span>
-        </div>
-    );
-};
-
-// --- Componente Schermata di Login ---
-const LoginScreen: React.FC<{ onLogin: (user: string, pass: string) => void; error: string; }> = ({ onLogin, error }) => {
+// Settings Component (internal for simplicity)
+const SettingsView = ({ providers, onAddProvider, onDeleteProvider }: { providers: string[], onAddProvider: (p: string) => Promise<void>, onDeleteProvider: (p: string) => Promise<void> }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [newProvider, setNewProvider] = useState('');
+    const [msg, setMsg] = useState('');
 
-    const handleSubmit = (e: React.FormEvent) => {
+    useEffect(() => {
+        api.getCredentials().then(c => {
+            setUsername(c.username);
+            setPassword(c.password);
+        }).catch(err => console.error("Error fetching credentials", err));
+    }, []);
+
+    const handleSaveCreds = async (e: React.FormEvent) => {
         e.preventDefault();
-        onLogin(username, password);
+        try {
+            await api.updateCredentials({ username, password });
+            setMsg('Credenziali aggiornate');
+            setTimeout(() => setMsg(''), 3000);
+        } catch (err) {
+            setMsg('Errore aggiornamento');
+        }
     };
 
+    const handleAdd = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if(!newProvider) return;
+        await onAddProvider(newProvider);
+        setNewProvider('');
+    }
+
     return (
-        <div className="flex items-center justify-center min-h-screen bg-slate-100 dark:bg-slate-900">
-            <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-slate-800 rounded-xl shadow-2xl animate-scale-in">
-                <div className="flex flex-col items-center">
-                    <div className="bg-sky-500 p-3 rounded-full mb-4">
-                        <UserGroupIcon className="h-8 w-8 text-white" />
-                    </div>
-                    <h1 className="text-3xl font-bold text-center text-slate-800 dark:text-slate-100">Mio CRM</h1>
-                    <p className="text-slate-500 dark:text-slate-400">Accedi al tuo pannello</p>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="p-6 bg-white dark:bg-slate-800 rounded-lg shadow">
+            <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-100">Impostazioni</h2>
+            
+            <div className="mb-8">
+                <h3 className="text-lg font-semibold mb-2 text-slate-700 dark:text-slate-200">Credenziali Admin</h3>
+                <form onSubmit={handleSaveCreds} className="space-y-4 max-w-md">
                     <div>
-                        <label
-                            htmlFor="username"
-                            className="text-sm font-medium text-slate-700 dark:text-slate-300"
-                        >
-                            Username
-                        </label>
-                        <input
-                            id="username"
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            required
-                            className="mt-1 block w-full px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                            placeholder="admin"
-                        />
+                        <label className="block text-sm text-slate-600 dark:text-slate-400">Username</label>
+                        <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
                     </div>
                     <div>
-                        <label
-                            htmlFor="password"
-                            className="text-sm font-medium text-slate-700 dark:text-slate-300"
-                        >
-                            Password
-                        </label>
-                        <input
-                            id="password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            className="mt-1 block w-full px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                            placeholder="admin"
-                        />
+                        <label className="block text-sm text-slate-600 dark:text-slate-400">Password</label>
+                        <div className="relative">
+                            <input 
+                                type={showPassword ? "text" : "password"} 
+                                value={password} 
+                                onChange={e => setPassword(e.target.value)} 
+                                className="w-full border p-2 rounded pr-10 dark:bg-slate-700 dark:border-slate-600 dark:text-white" 
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 focus:outline-none"
+                                aria-label={showPassword ? "Nascondi password" : "Mostra password"}
+                            >
+                                {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                            </button>
+                        </div>
                     </div>
-                    {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-                    <button
-                        type="submit"
-                        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors"
-                    >
-                        Accedi
-                    </button>
+                    <button type="submit" className="px-4 py-2 bg-sky-500 text-white rounded hover:bg-sky-600">Salva</button>
+                    {msg && <span className="ml-3 text-sm text-green-500">{msg}</span>}
                 </form>
+            </div>
+
+            <div>
+                 <h3 className="text-lg font-semibold mb-2 text-slate-700 dark:text-slate-200">Gestione Fornitori</h3>
+                 <form onSubmit={handleAdd} className="flex gap-2 mb-4 max-w-md">
+                     <input type="text" value={newProvider} onChange={e => setNewProvider(e.target.value)} placeholder="Nuovo fornitore" className="flex-1 border p-2 rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
+                     <button type="submit" className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Aggiungi</button>
+                 </form>
+                 <ul className="max-w-md border rounded divide-y dark:border-slate-700 dark:divide-slate-700">
+                     {providers.map(p => (
+                         <li key={p} className="p-2 flex justify-between items-center bg-white dark:bg-slate-800 dark:text-slate-200">
+                             {p}
+                             <button onClick={() => onDeleteProvider(p)} className="text-red-500 hover:text-red-700">Elimina</button>
+                         </li>
+                     ))}
+                 </ul>
             </div>
         </div>
     );
 };
 
-
 const App: React.FC = () => {
-    // --- Authentication State ---
-    const [isAuthLoading, setIsAuthLoading] = useState(true);
+    // Auth State
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [credentials, setCredentials] = useState({ username: '', password: '' });
-    const [loginError, setLoginError] = useState('');
-    const [toast, setToast] = useState<ToastState>(null);
+    const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-    // State
+    // State definitions
     const [clients, setClients] = useState<Client[]>([]);
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [providers, setProviders] = useState<string[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [currentView, setCurrentView] = useState<View>('dashboard');
-    const [modal, setModal] = useState<ModalState>(null);
-    const [itemToDelete, setItemToDelete] = useState<{ type: 'client' | 'contract' | 'provider', id: string } | null>(null);
-    
-    // Dashboard filters
-    const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-    const [selectedMonth, setSelectedMonth] = useState<string>('all');
-    const [selectedProvider, setSelectedProvider] = useState<string>('all');
-    const [clientChartYear, setClientChartYear] = useState<string>(new Date().getFullYear().toString());
-    const [contractChartYear, setContractChartYear] = useState<string>(new Date().getFullYear().toString());
-    const [commissionChartYear, setCommissionChartYear] = useState<string>(new Date().getFullYear().toString());
-
-    // Contract list filters
-    const [contractListProvider, setContractListProvider] = useState<string>('all');
-    const [contractListStartDateFrom, setContractListStartDateFrom] = useState<string>('');
-    const [contractListStartDateTo, setContractListStartDateTo] = useState<string>('');
-    const [contractListEndDateFrom, setContractListEndDateFrom] = useState<string>('');
-    const [contractListEndDateTo, setContractListEndDateTo] = useState<string>('');
-    
-    // Sidebar state for mobile
+    const [loading, setLoading] = useState(true);
+    const [view, setView] = useState<'dashboard' | 'clients' | 'contracts' | 'settings'>('dashboard');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [theme, setTheme] = useState<'light' | 'dark'>('light');
     
-    // Search state
+    // Modals & Toast State
+    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'client' | 'contract' | 'provider' } | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    
+    const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+    const [editingClient, setEditingClient] = useState<Client | null>(null);
+    
+    const [isContractModalOpen, setIsContractModalOpen] = useState(false);
+    const [editingContract, setEditingContract] = useState<Contract | null>(null);
+    
     const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Theme state
-    const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-        if (typeof window !== 'undefined' && window.localStorage.theme === 'dark') {
-            return 'dark';
-        }
-        if (typeof window !== 'undefined' && !('theme' in window.localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            return 'dark';
-        }
-        return 'light';
-    });
-    
-    useEffect(() => {
-        if (theme === 'dark') {
-            document.documentElement.classList.add('dark');
-            localStorage.theme = 'dark';
-        } else {
-            document.documentElement.classList.remove('dark');
-            localStorage.theme = 'light';
-        }
-    }, [theme]);
-    
-    const handleThemeSwitch = () => {
-        setTheme(theme === 'light' ? 'dark' : 'light');
-    };
+    const [isSaving, setIsSaving] = useState(false);
+    const [isClientSuccess, setIsClientSuccess] = useState(false);
+    const [isContractSuccess, setIsContractSuccess] = useState(false);
 
-    // --- Authentication Handlers ---
+    // Contract List Filters State
+    const [contractProviderFilter, setContractProviderFilter] = useState('all');
+    const [contractFilterYear, setContractFilterYear] = useState('all');
+    const [contractFilterMonth, setContractFilterMonth] = useState('all');
+    const [contractDateFrom, setContractDateFrom] = useState('');
+    const [contractDateTo, setContractDateTo] = useState('');
+    const [contractEndDateFrom, setContractEndDateFrom] = useState('');
+    const [contractEndDateTo, setContractEndDateTo] = useState('');
+
+    // Dashboard Filter State
+    const [dashboardYear, setDashboardYear] = useState(new Date().getFullYear().toString());
+    const [dashboardMonth, setDashboardMonth] = useState((new Date().getMonth() + 1).toString());
+    const [dashboardProvider, setDashboardProvider] = useState('all');
+
+    // --- Authentication Logic ---
     useEffect(() => {
-        const fetchCredentials = async () => {
-            try {
-                const creds = await api.getCredentials();
-                setCredentials(creds);
-            } catch (err: any) {
-                // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
-                console.error("Failed to fetch credentials:", String(err));
-                setLoginError("Impossibile caricare le credenziali. Controlla la connessione.");
-                setCredentials({ username: 'admin', password: 'admin' }); // Fallback
-            } finally {
-                setIsAuthLoading(false);
-            }
-        };
-        fetchCredentials();
+        const storedAuth = localStorage.getItem('isLoggedIn');
+        if (storedAuth === 'true') {
+            setIsAuthenticated(true);
+        }
+        setIsAuthChecking(false);
     }, []);
 
-    const handleLogin = (user: string, pass: string) => {
-        if (user === credentials.username && pass === credentials.password) {
-            setIsAuthenticated(true);
-            setLoginError('');
-        } else {
-            setLoginError('Credenziali non valide. Riprova.');
-        }
+    const handleLogin = () => {
+        localStorage.setItem('isLoggedIn', 'true');
+        setIsAuthenticated(true);
     };
 
     const handleLogout = () => {
+        localStorage.removeItem('isLoggedIn');
         setIsAuthenticated(false);
-    };
-    
-    const handleSaveCredentials = async (newCreds: {username: string, password: string}) => {
-        if (newCreds.username.trim() === '' || newCreds.password.trim() === '') {
-            setToast({ message: 'Username e Password non possono essere vuoti.', type: 'error' });
-            return;
-        }
-        try {
-            await api.updateCredentials(newCreds);
-            setCredentials(newCreds);
-            setToast({ message: "Credenziali salvate correttamente!", type: 'success' });
-        } catch (err: any) {
-            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
-            console.error("Failed to save credentials:", String(err));
-            setToast({ message: "Salvataggio credenziali fallito. Riprova.", type: 'error' });
-        }
+        setClients([]);
+        setContracts([]);
+        setProviders([]);
     };
 
-    // Data fetching
-    const fetchData = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const [clientsData, contractsData, providersData] = await Promise.all([
-                api.getAllClients(),
-                api.getAllContracts(),
-                api.getAllProviders(),
-            ]);
-            setClients(clientsData);
-            setContracts(contractsData);
-            setProviders(providersData);
-        } catch (e: any) {
-            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
-            console.error("An unexpected error occurred while fetching data:", String(e));
-            setError("Si è verificato un errore nel caricamento dei dati. Riprova più tardi.");
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
+    // Data Loading (Only if Authenticated)
     useEffect(() => {
-        if(isAuthenticated) {
-            fetchData();
-        }
-    }, [fetchData, isAuthenticated]);
+        if (!isAuthenticated) return;
 
-    // Keyboard shortcuts for search
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-                e.preventDefault();
-                setIsSearchModalOpen(true);
-            }
-            if (e.key === 'Escape' && isSearchModalOpen) {
-                setIsSearchModalOpen(false);
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const [clientsData, contractsData, providersData] = await Promise.all([
+                    api.getAllClients(),
+                    api.getAllContracts(),
+                    api.getAllProviders()
+                ]);
+                setClients(clientsData || []);
+                setContracts(contractsData || []);
+                setProviders(providersData || []);
+            } catch (error) {
+                console.error("Failed to load data", error);
+                setToast({ message: "Errore caricamento dati. Verifica la console.", type: 'error' });
+                // Initialize with empty arrays to prevent crashes
+                setClients([]);
+                setContracts([]);
+                setProviders([]);
+            } finally {
+                setLoading(false);
             }
         };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isSearchModalOpen]);
+        fetchData();
+    }, [isAuthenticated]);
 
-    // Client handlers
-    const handleSaveClient = async (clientData: Omit<Client, 'id' | 'createdAt'>) => {
-        setIsSaving(true);
-        try {
-            if (modal?.type === 'client' && modal.data) {
-                await api.updateClient({ ...clientData, id: (modal.data as Client).id, createdAt: (modal.data as Client).createdAt });
-            } else {
-                await api.createClient(clientData);
+    // Theme Handling
+    useEffect(() => {
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    }, [theme]);
+
+    // Search Logic
+    const searchResults = useMemo(() => {
+        if (!searchQuery) return { clients: [], contracts: [] };
+        const q = searchQuery.toLowerCase();
+        return {
+            clients: clients.filter(c => 
+                (c.firstName || '').toLowerCase().includes(q) || 
+                (c.lastName || '').toLowerCase().includes(q) || 
+                (c.email || '').toLowerCase().includes(q)
+            ),
+            contracts: contracts.filter(c => 
+                (c.provider || '').toLowerCase().includes(q) || 
+                (c.contractCode || '').toLowerCase().includes(q)
+            )
+        };
+    }, [clients, contracts, searchQuery]);
+
+    const getClientName = (clientId: string) => {
+        const c = clients.find(cl => cl.id === clientId);
+        return c ? `${c.firstName} ${c.lastName}` : 'N/D';
+    };
+
+    // Calculate Available Years for Filters
+    const availableYears = useMemo(() => {
+        const years = new Set<string>();
+        contracts.forEach(c => {
+            if (c.startDate) {
+                years.add(new Date(c.startDate).getFullYear().toString());
             }
-            setModal(null);
-            await fetchData();
-        } catch (e: any) {
-            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
-            console.error("An unexpected error occurred while saving client:", String(e));
-            setToast({ message: "Salvataggio del cliente fallito.", type: 'error' });
-        } finally {
-            setIsSaving(false);
-        }
-    };
+        });
+        // Aggiungi anno corrente se non presente
+        years.add(new Date().getFullYear().toString());
+        return Array.from(years).sort((a, b) => parseInt(b) - parseInt(a));
+    }, [contracts]);
 
-    const handleDeleteClient = (clientId: string) => {
-        setItemToDelete({ type: 'client', id: clientId });
-    };
-    
-    // Contract handlers
-    const handleSaveContract = async (contractData: Omit<Contract, 'id'>) => {
-        setIsSaving(true);
-        try {
-            if (modal?.type === 'contract' && modal.data) {
-                await api.updateContract({ ...contractData, id: (modal.data as Contract).id });
-            } else {
-                await api.createContract(contractData);
-            }
-            setModal(null);
-            await fetchData();
-        } catch (e: any) {
-            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
-            console.error("An unexpected error occurred while saving contract:", String(e));
-            setToast({ message: "Salvataggio del contratto fallito.", type: 'error' });
-        } finally {
-            setIsSaving(false);
-        }
-    };
 
-    const handleDeleteContract = (contractId: string) => {
-        setItemToDelete({ type: 'contract', id: contractId });
-    };
-    
-    const handleToggleContractPaidStatus = async (contract: Contract) => {
-        const updatedContract = { ...contract, isPaid: !contract.isPaid };
-        try {
-            // Optimistic UI update
-            setContracts(prevContracts => prevContracts.map(c => c.id === updatedContract.id ? updatedContract : c));
-            await api.updateContract(updatedContract);
-            setToast({ message: "Stato pagamento aggiornato.", type: 'success' });
-        } catch (e: any) {
-            // Revert on error
-            setContracts(prevContracts => prevContracts.map(c => c.id === contract.id ? contract : c));
-            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
-            console.error("Failed to update paid status:", String(e));
-            setToast({ message: "Aggiornamento fallito.", type: 'error' });
-        }
-    };
-
+    // --- Deletion Logic ---
     const confirmDelete = async () => {
         if (!itemToDelete) return;
+        const { id, type } = itemToDelete;
 
         setIsDeleting(true);
         try {
-            // FIX: Cast itemToDelete.id to string to prevent 'unknown' type errors if inference fails.
-            const id = String(itemToDelete.id);
+            const idString = String(id);
 
-            if (itemToDelete.type === 'client') {
-                await api.deleteClient(id);
-                setClients(prevClients => prevClients.filter(client => client.id !== itemToDelete.id));
-                setContracts(prevContracts => prevContracts.filter(contract => contract.clientId !== itemToDelete.id));
+            if (type === 'client') {
+                await api.deleteClient(idString);
+                setClients(prevClients => prevClients.filter(client => client.id !== idString));
+                setContracts(prevContracts => prevContracts.filter(contract => contract.clientId !== idString));
                 setToast({ message: "Cliente eliminato con successo!", type: 'success' });
-            } else if (itemToDelete.type === 'contract') {
-                await api.deleteContract(id);
-                setContracts(prevContracts => prevContracts.filter(contract => contract.id !== itemToDelete.id));
+            } else if (type === 'contract') {
+                await api.deleteContract(idString);
+                setContracts(prevContracts => prevContracts.filter(contract => contract.id !== idString));
                 setToast({ message: "Contratto eliminato con successo!", type: 'success' });
-            } else if (itemToDelete.type === 'provider') {
-                const updatedProviders = await api.deleteProvider(id);
+            } else if (type === 'provider') {
+                const updatedProviders = await api.deleteProvider(idString);
                 setProviders(updatedProviders);
                 setToast({ message: "Fornitore eliminato con successo!", type: 'success' });
             }
         } catch (e: any) {
             let errorMessage = "Eliminazione fallita.";
-            if (itemToDelete.type === 'client') {
-                errorMessage = "Eliminazione del cliente fallita.";
-            } else if (itemToDelete.type === 'contract') {
-                errorMessage = "Eliminazione del contratto fallita.";
-            } else if (itemToDelete.type === 'provider') {
-                errorMessage = "Eliminazione del fornitore fallita.";
-            }
-            
-            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
-            console.error("An unexpected error occurred during deletion:", String(e));
-            setToast({ message: errorMessage, type: 'error' });
+            if (type === 'client') errorMessage = "Impossibile eliminare il cliente.";
+            else if (type === 'contract') errorMessage = "Impossibile eliminare il contratto.";
+            else if (type === 'provider') errorMessage = "Impossibile eliminare il fornitore.";
+
+            const errorDetails = e instanceof Error ? e.message : String(e);
+            console.error("Deletion error:", errorDetails);
+            setToast({ message: `${errorMessage}: ${errorDetails}`, type: 'error' });
         } finally {
             setIsDeleting(false);
             setItemToDelete(null);
         }
     };
-
 
     const handleAddProvider = async (newProvider: string) => {
         try {
@@ -386,727 +307,377 @@ const App: React.FC = () => {
             setProviders(updatedProviders);
             setToast({ message: "Fornitore aggiunto con successo!", type: 'success' });
         } catch (e: any) {
-            // FIX: Explicitly convert unknown error to string for logging to prevent type errors.
-            console.error("An unexpected error occurred while adding provider:", String(e));
+             const errorDetails = e instanceof Error ? e.message : String(e);
+            console.error("Add provider error:", errorDetails);
             setToast({ message: "Aggiunta del fornitore fallita.", type: 'error' });
         }
     };
 
-    const handleDeleteProvider = (providerToDelete: string) => {
-        const isProviderInUse = contracts.some(c => c.provider === providerToDelete);
-        if (isProviderInUse) {
-            setToast({ message: "Questo fornitore non può essere eliminato perché è utilizzato in uno o più contratti.", type: 'error' });
-            return;
-        }
-        setItemToDelete({ type: 'provider', id: providerToDelete });
+    const handleDeleteProvider = async (provider: string) => {
+        setItemToDelete({ id: provider, type: 'provider' });
     };
 
-
-    // Memos for derived data
-    const expiringContracts = useMemo(() => {
-        return contracts.filter(c => {
-            if (!c.endDate) return false;
-            const now = new Date();
-            const thirtyDaysFromNow = new Date();
-            thirtyDaysFromNow.setDate(now.getDate() + 30);
-            now.setHours(0,0,0,0);
-            const endDate = new Date(c.endDate);
-            return endDate >= now && endDate <= thirtyDaysFromNow;
-        });
-    }, [contracts]);
-    
-    const filteredContracts = useMemo(() => {
-        return contracts
-            .filter(c => selectedYear === 'all' || new Date(c.startDate).getFullYear().toString() === selectedYear)
-            .filter(c => selectedMonth === 'all' || (new Date(c.startDate).getMonth() + 1).toString() === selectedMonth)
-            .filter(c => selectedProvider === 'all' || c.provider === selectedProvider);
-    }, [contracts, selectedYear, selectedMonth, selectedProvider]);
-
-    const totalCommission = useMemo(() => {
-        return filteredContracts.reduce((sum, contract) => sum + (contract.commission || 0), 0);
-    }, [filteredContracts]);
-    
-    const energyCommission = useMemo(() => {
-        return filteredContracts
-            .filter(c => c.type === ContractType.Electricity || c.type === ContractType.Gas)
-            .reduce((sum, contract) => sum + (contract.commission || 0), 0);
-    }, [filteredContracts]);
-
-    const telephonyCommission = useMemo(() => {
-        return filteredContracts
-            .filter(c => c.type === ContractType.Telephony)
-            .reduce((sum, contract) => sum + (contract.commission || 0), 0);
-    }, [filteredContracts]);
-    
-    const energyContracts = useMemo(() => 
-        contracts.filter(c => c.type === ContractType.Electricity || c.type === ContractType.Gas), 
-    [contracts]);
-    
-    const telephonyContracts = useMemo(() => 
-        contracts.filter(c => c.type === ContractType.Telephony), 
-    [contracts]);
-
-    const providerCounts = useMemo(() => {
-        const energyProviders = new Set<string>();
-        const telephonyProviders = new Set<string>();
-
-        contracts.forEach(contract => {
-            if (contract.type === ContractType.Electricity || contract.type === ContractType.Gas) {
-                energyProviders.add(contract.provider);
-            } else if (contract.type === ContractType.Telephony) {
-                telephonyProviders.add(contract.provider);
+    // --- Create/Update Logic ---
+    const handleSaveClient = async (clientData: Omit<Client, 'id' | 'createdAt'>) => {
+        setIsSaving(true);
+        try {
+            if (editingClient) {
+                const updated = await api.updateClient({ ...clientData, id: editingClient.id, createdAt: editingClient.createdAt });
+                setClients(prev => prev.map(c => c.id === updated.id ? updated : c));
+            } else {
+                const created = await api.createClient(clientData);
+                setClients(prev => [...prev, created]);
             }
+            
+            setIsSaving(false);
+            setIsClientSuccess(true);
+
+            setTimeout(() => {
+                setIsClientSuccess(false);
+                setIsClientModalOpen(false);
+                setToast({ message: editingClient ? "Cliente aggiornato!" : "Cliente creato!", type: 'success' });
+            }, 1000);
+            
+        } catch (e) {
+            console.error("Save client error:", e);
+            setToast({ message: "Errore salvataggio cliente", type: 'error' });
+            setIsSaving(false);
+        }
+    };
+
+    const handleSaveContract = async (contractData: Omit<Contract, 'id'>) => {
+        setIsSaving(true);
+        try {
+            if (editingContract) {
+                const updated = await api.updateContract({ ...contractData, id: editingContract.id });
+                setContracts(prev => prev.map(c => c.id === updated.id ? updated : c));
+            } else {
+                const created = await api.createContract(contractData);
+                setContracts(prev => [...prev, created]);
+            }
+            
+            setIsSaving(false);
+            setIsContractSuccess(true);
+
+            setTimeout(() => {
+                setIsContractSuccess(false);
+                setIsContractModalOpen(false);
+                setToast({ message: editingContract ? "Contratto aggiornato!" : "Contratto creato!", type: 'success' });
+            }, 1000);
+
+        } catch (e) {
+             console.error("Save contract error:", e);
+            setToast({ message: "Errore salvataggio contratto", type: 'error' });
+            setIsSaving(false);
+        }
+    };
+
+    const togglePaidStatus = async (contract: Contract) => {
+        try {
+            const updated = await api.updateContract({ ...contract, isPaid: !contract.isPaid });
+            setContracts(prev => prev.map(c => c.id === updated.id ? updated : c));
+        } catch(e) {
+            console.error("Update paid status error:", e);
+            setToast({ message: "Errore aggiornamento stato", type: 'error' });
+        }
+    };
+
+    // --- Dashboard Calculations ---
+    const filteredDashboardContracts = useMemo(() => {
+        return contracts.filter(c => {
+            if (dashboardProvider !== 'all' && c.provider !== dashboardProvider) return false;
+            
+            if (!c.startDate) return false;
+            const d = new Date(c.startDate);
+            if (dashboardYear !== 'all' && d.getFullYear().toString() !== dashboardYear) return false;
+            if (dashboardMonth !== 'all' && (d.getMonth() + 1).toString() !== dashboardMonth) return false;
+
+            return true;
         });
+    }, [contracts, dashboardProvider, dashboardYear, dashboardMonth]);
 
-        return {
-            energy: energyProviders.size,
-            telephony: telephonyProviders.size,
-        };
-    }, [contracts]);
-
-    const availableYears = useMemo(() => {
-        const years = new Set(contracts.map(c => new Date(c.startDate).getFullYear().toString()));
-        return Array.from(years).sort((a,b) => parseInt(b) - parseInt(a));
-    }, [contracts]);
+    const totalCommission = useMemo(() => filteredDashboardContracts.reduce((sum, c) => sum + (c.commission || 0), 0), [filteredDashboardContracts]);
+    const energyCommission = useMemo(() => filteredDashboardContracts.filter(c => c.type !== ContractType.Telephony).reduce((sum, c) => sum + (c.commission || 0), 0), [filteredDashboardContracts]);
+    const telephonyCommission = useMemo(() => filteredDashboardContracts.filter(c => c.type === ContractType.Telephony).reduce((sum, c) => sum + (c.commission || 0), 0), [filteredDashboardContracts]);
     
-    const clientAvailableYears = useMemo(() => {
-        const years = new Set(clients.map(c => new Date(c.createdAt).getFullYear().toString()));
-        const currentYear = new Date().getFullYear().toString();
-        if (!years.has(currentYear)) {
-            years.add(currentYear);
-        }
-        return Array.from(years).sort((a,b) => parseInt(b) - parseInt(a));
-    }, [clients]);
-
-    const contractAvailableYears = useMemo(() => {
-        const years = new Set(contracts.map(c => new Date(c.startDate).getFullYear().toString()));
-        const currentYear = new Date().getFullYear().toString();
-        if (!years.has(currentYear)) {
-            years.add(currentYear);
-        }
-        return Array.from(years).sort((a, b) => parseInt(b) - parseInt(a));
-    }, [contracts]);
-
-    // Search logic
-    const searchResults = useMemo(() => {
-        if (searchQuery.length < 2) {
-            return { clients: [], contracts: [] };
-        }
-        const lowerCaseQuery = searchQuery.toLowerCase();
-        const foundClients = clients.filter(c =>
-            c.firstName.toLowerCase().includes(lowerCaseQuery) ||
-            c.lastName.toLowerCase().includes(lowerCaseQuery) ||
-            c.ragioneSociale?.toLowerCase().includes(lowerCaseQuery) ||
-            c.email.toLowerCase().includes(lowerCaseQuery) ||
-            c.codiceFiscale?.toLowerCase().includes(lowerCaseQuery) ||
-            c.pIva?.toLowerCase().includes(lowerCaseQuery)
-        );
-        const foundContracts = contracts.filter(c =>
-            c.provider.toLowerCase().includes(lowerCaseQuery) ||
-            c.contractCode.toLowerCase().includes(lowerCaseQuery)
-        );
-        return { clients: foundClients, contracts: foundContracts };
-    }, [searchQuery, clients, contracts]);
-
-    const getClientName = useCallback((clientId: string) => {
-        const client = clients.find(c => c.id === clientId);
-        if (!client) return 'N/D';
-        let displayName = `${client.lastName} ${client.firstName}`;
-        if (client.ragioneSociale) {
-            displayName += ` (${client.ragioneSociale})`;
-        }
-        return displayName;
-    }, [clients]);
-
-    const handleSearchClientClick = (client: Client) => {
-        setIsSearchModalOpen(false);
-        setSearchQuery('');
-        setCurrentView('clients');
-        setTimeout(() => setModal({ type: 'client', data: client }), 100);
-    };
-
-    const handleSearchContractClick = (contract: Contract) => {
-        setIsSearchModalOpen(false);
-        setSearchQuery('');
-        setCurrentView('contracts');
-        setTimeout(() => setModal({ type: 'contract', data: contract }), 100);
-    };
-    
-    const deletionDetails = useMemo(() => {
-        if (!itemToDelete) return null;
-
-        if (itemToDelete.type === 'client') {
-            const client = clients.find(c => c.id === itemToDelete.id);
-            if (!client) return null;
-            return {
-                title: 'Conferma Eliminazione Cliente',
-                message: (
-                    <>
-                        <p>Sei sicuro di voler eliminare definitivamente <strong>{client.firstName} {client.lastName}</strong>?</p>
-                        <p className="font-semibold text-red-600 dark:text-red-400 mt-2">Questa azione è irreversibile e comporterà l'eliminazione di tutti i suoi contratti associati.</p>
-                    </>
-                ),
-            };
-        } else if (itemToDelete.type === 'contract') {
-            const contract = contracts.find(c => c.id === itemToDelete.id);
-            if (!contract) return null;
-            const clientName = getClientName(contract.clientId);
-            return {
-                title: 'Conferma Eliminazione Contratto',
-                message: (
-                    <>
-                        <p>Sei sicuro di voler eliminare definitivamente il contratto <strong>{contract.provider}</strong> ({contract.contractCode || 'N/D'}) per il cliente <strong>{clientName}</strong>?</p>
-                        <p className="font-semibold text-red-600 dark:text-red-400 mt-2">Questa azione è irreversibile.</p>
-                    </>
-                ),
-            };
-        } else if (itemToDelete.type === 'provider') {
-            const providerName = itemToDelete.id;
-            return {
-                title: 'Conferma Eliminazione Fornitore',
-                message: (
-                    <>
-                        <p>Sei sicuro di voler eliminare definitivamente il fornitore <strong>{providerName}</strong>?</p>
-                        <p className="font-semibold text-red-600 dark:text-red-400 mt-2">Questa azione è irreversibile.</p>
-                    </>
-                ),
-            };
-        }
-        return null;
-    }, [itemToDelete, clients, contracts, getClientName]);
-
-    const currentMonthCommissions = useMemo(() => {
+    // Calcolo delle provvigioni del mese corrente (indipendentemente dai filtri)
+    const currentMonthStats = useMemo(() => {
         const now = new Date();
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth(); // 0-indexed
+        const thisYear = now.getFullYear();
+        const thisMonth = now.getMonth();
 
         const currentMonthContracts = contracts.filter(c => {
             if (!c.startDate) return false;
-            const startDate = new Date(c.startDate);
-            return startDate.getFullYear() === currentYear && startDate.getMonth() === currentMonth;
+            const d = new Date(c.startDate);
+            return d.getFullYear() === thisYear && d.getMonth() === thisMonth;
         });
 
-        const total = currentMonthContracts.reduce((sum, contract) => sum + (contract.commission || 0), 0);
-        const energy = currentMonthContracts
-            .filter(c => c.type === ContractType.Electricity || c.type === ContractType.Gas)
-            .reduce((sum, contract) => sum + (contract.commission || 0), 0);
-        const telephony = currentMonthContracts
-            .filter(c => c.type === ContractType.Telephony)
-            .reduce((sum, contract) => sum + (contract.commission || 0), 0);
-            
+        const total = currentMonthContracts.reduce((sum, c) => sum + (c.commission || 0), 0);
+        const energy = currentMonthContracts.filter(c => c.type !== ContractType.Telephony).reduce((sum, c) => sum + (c.commission || 0), 0);
+        const telephony = currentMonthContracts.filter(c => c.type === ContractType.Telephony).reduce((sum, c) => sum + (c.commission || 0), 0);
+
         return { total, energy, telephony };
     }, [contracts]);
 
-    const contractsWidgetSubtitle = useMemo(() => {
-        const months = [
-            { value: 'all', name: 'Tutti i Mesi' }, { value: '1', name: 'Gennaio' },
-            { value: '2', name: 'Febbraio' }, { value: '3', name: 'Marzo' },
-            { value: '4', name: 'Aprile' }, { value: '5', name: 'Maggio' },
-            { value: '6', name: 'Giugno' }, { value: '7', name: 'Luglio' },
-            { value: '8', name: 'Agosto' }, { value: '9', name: 'Settembre' },
-            { value: '10', name: 'Ottobre' }, { value: '11', name: 'Novembre' },
-            { value: '12', name: 'Dicembre' },
-        ];
-        const monthName = selectedMonth === 'all' ? undefined : months.find(m => m.value === selectedMonth)?.name;
-        const subtitleParts: string[] = [];
-        if (selectedProvider !== 'all') {
-            subtitleParts.push(selectedProvider);
-        }
-        if (selectedMonth !== 'all' && monthName) {
-            subtitleParts.push(monthName);
-        }
-        if (selectedYear !== 'all') {
-            subtitleParts.push(selectedYear);
-        }
-        if (subtitleParts.length > 0) {
-            return `(${subtitleParts.join(', ')})`;
-        }
-        return "(Complessivo)";
-    }, [selectedYear, selectedMonth, selectedProvider]);
+    const energyProvidersCount = useMemo(() => new Set(contracts.filter(c => c.type !== ContractType.Telephony).map(c => c.provider)).size, [contracts]);
+    const telephonyProvidersCount = useMemo(() => new Set(contracts.filter(c => c.type === ContractType.Telephony).map(c => c.provider)).size, [contracts]);
 
-    const filteredContractList = useMemo(() => {
-        return contracts
-            .filter(c => contractListProvider === 'all' || c.provider === contractListProvider)
-            .filter(c => {
-                if (!contractListStartDateFrom) return true;
-                return c.startDate && c.startDate >= contractListStartDateFrom;
-            })
-            .filter(c => {
-                if (!contractListStartDateTo) return true;
-                return c.startDate && c.startDate <= contractListStartDateTo;
-            })
-            .filter(c => {
-                if (!contractListEndDateFrom) return true;
-                return c.endDate && c.endDate >= contractListEndDateFrom;
-            })
-            .filter(c => {
-                if (!contractListEndDateTo) return true;
-                return c.endDate && c.endDate <= contractListEndDateTo;
-            });
-    }, [contracts, contractListProvider, contractListStartDateFrom, contractListStartDateTo, contractListEndDateFrom, contractListEndDateTo]);
-
-    const renderContent = () => {
-        if (isLoading && clients.length === 0) {
-            return <div className="flex justify-center items-center h-full"><Spinner size="lg" /></div>;
-        }
-        if (error) {
-            return <div className="text-center text-red-500 p-8">{error}</div>;
-        }
-
-        switch (currentView) {
-            case 'dashboard':
-                const months = [
-                    { value: 'all', name: 'Tutti i Mesi' },
-                    { value: '1', name: 'Gennaio' }, { value: '2', name: 'Febbraio' },
-                    { value: '3', name: 'Marzo' }, { value: '4', name: 'Aprile' },
-                    { value: '5', name: 'Maggio' }, { value: '6', name: 'Giugno' },
-                    { value: '7', name: 'Luglio' }, { value: '8', name: 'Agosto' },
-                    { value: '9', name: 'Settembre' }, { value: '10', name: 'Ottobre' },
-                    { value: '11', name: 'Novembre' }, { value: '12', name: 'Dicembre' },
-                ];
-                return (
-                    <div className="space-y-6 animate-fade-in-down">
-                        {/* Filter Bar */}
-                        <div className="bg-white dark:bg-slate-800/50 p-4 rounded-xl shadow-md border border-slate-200 dark:border-slate-700">
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div>
-                              <label htmlFor="year-filter" className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Anno</label>
-                              <select 
-                                id="year-filter" 
-                                value={selectedYear} 
-                                onChange={e => setSelectedYear(e.target.value)} 
-                                className="w-full text-sm bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
-                              >
-                                <option value="all">Tutti gli Anni</option>
-                                {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
-                              </select>
-                            </div>
-                             <div>
-                              <label htmlFor="month-filter" className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Mese</label>
-                              <select 
-                                id="month-filter" 
-                                value={selectedMonth} 
-                                onChange={e => setSelectedMonth(e.target.value)} 
-                                className="w-full text-sm bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
-                              >
-                                {months.map(month => <option key={month.value} value={month.value}>{month.name}</option>)}
-                              </select>
-                            </div>
-                             <div>
-                              <label htmlFor="provider-filter-dashboard" className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Fornitore</label>
-                              <select 
-                                id="provider-filter-dashboard" 
-                                value={selectedProvider} 
-                                onChange={e => setSelectedProvider(e.target.value)} 
-                                className="w-full text-sm bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
-                              >
-                                <option value="all">Tutti i Fornitori</option>
-                                {providers.sort().map(provider => <option key={provider} value={provider}>{provider}</option>)}
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-
-                        {expiringContracts.length > 0 && 
-                            <ExpiringContractsWidget 
-                                contracts={expiringContracts} 
-                                clients={clients} 
-                                onEdit={(contract) => setModal({ type: 'contract', data: contract })}
-                                onDelete={handleDeleteContract}
-                            />
-                        }
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <CombinedTotalsWidget
-                                totalClients={clients.length}
-                                totalContracts={filteredContracts.length}
-                                contractsSubtitle={contractsWidgetSubtitle}
-                            />
-                            <CurrentMonthCommissionWidget
-                                totalCommission={currentMonthCommissions.total}
-                                energyCommission={currentMonthCommissions.energy}
-                                telephonyCommission={currentMonthCommissions.telephony}
-                            />
-                            <CommissionSummaryWidget 
-                                totalCommission={totalCommission}
-                                energyCommission={energyCommission}
-                                telephonyCommission={telephonyCommission}
-                                selectedYear={selectedYear}
-                                selectedMonth={selectedMonth}
-                                selectedProvider={selectedProvider}
-                             />
-                             <TotalProvidersWidget
-                                totalProviders={providers.length}
-                                energyProviderCount={providerCounts.energy}
-                                telephonyProviderCount={providerCounts.telephony}
-                            />
-                        </div>
-                        
-                        <div className="space-y-6">
-                            {/* Trend Charts */}
-                            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                                {/* Client Chart */}
-                                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                                        <div className="flex items-center">
-                                            <ChartBarIcon className="h-6 w-6 text-sky-500 mr-3" />
-                                            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Andamento Clienti</h2>
-                                        </div>
-                                        <div className="mt-3 sm:mt-0">
-                                            <label htmlFor="client-chart-year-filter" className="sr-only">Seleziona Anno</label>
-                                            <select 
-                                                id="client-chart-year-filter" 
-                                                value={clientChartYear} 
-                                                onChange={e => setClientChartYear(e.target.value)} 
-                                                className="w-full sm:w-auto text-sm bg-slate-100 dark:bg-slate-700 border-transparent focus:border-sky-500 focus:ring-sky-500 rounded-md py-1.5 px-3 transition"
-                                            >
-                                                {clientAvailableYears.map(year => <option key={year} value={year}>{year}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <ClientChart clients={clients} selectedYear={clientChartYear} />
-                                </div>
-
-                                {/* Contract Chart */}
-                                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                                        <div className="flex items-center">
-                                            <DocumentDuplicateIcon className="h-6 w-6 text-green-500 mr-3" />
-                                            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Andamento Contratti</h2>
-                                        </div>
-                                        <div className="mt-3 sm:mt-0">
-                                            <label htmlFor="contract-chart-year-filter" className="sr-only">Seleziona Anno</label>
-                                            <select 
-                                                id="contract-chart-year-filter" 
-                                                value={contractChartYear} 
-                                                onChange={e => setContractChartYear(e.target.value)} 
-                                                className="w-full sm:w-auto text-sm bg-slate-100 dark:bg-slate-700 border-transparent focus:border-sky-500 focus:ring-sky-500 rounded-md py-1.5 px-3 transition"
-                                            >
-                                                {contractAvailableYears.map(year => <option key={year} value={year}>{year}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <ContractChart contracts={contracts} selectedYear={contractChartYear} />
-                                </div>
-                                
-                                {/* Commission Chart */}
-                                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                                        <div className="flex items-center">
-                                            <TrendingUpIcon className="h-6 w-6 text-indigo-500 mr-3" />
-                                            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Andamento Provvigioni</h2>
-                                        </div>
-                                        <div className="mt-3 sm:mt-0">
-                                            <label htmlFor="commission-chart-year-filter" className="sr-only">Seleziona Anno</label>
-                                            <select 
-                                                id="commission-chart-year-filter" 
-                                                value={commissionChartYear} 
-                                                onChange={e => setCommissionChartYear(e.target.value)} 
-                                                className="w-full sm:w-auto text-sm bg-slate-100 dark:bg-slate-700 border-transparent focus:border-indigo-500 focus:ring-indigo-500 rounded-md py-1.5 px-3 transition"
-                                            >
-                                                {contractAvailableYears.map(year => <option key={year} value={year}>{year}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <CommissionChart contracts={contracts} selectedYear={commissionChartYear} />
-                                </div>
-                            </div>
-                           
-                            {/* Provider Distribution Charts */}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                               <PaidStatusPieChart contracts={contracts} />
-                               <EnergyProviderPieChart contracts={energyContracts} />
-                               <TelephonyProviderPieChart contracts={telephonyContracts} />
-                            </div>
-                        </div>
-                    </div>
-                );
-            case 'clients':
-                return <ClientListView 
-                            clients={clients} 
-                            contracts={contracts}
-                            onAdd={() => setModal({ type: 'client', data: null })} 
-                            onEdit={(client) => setModal({ type: 'client', data: client })} 
-                            onDelete={handleDeleteClient} 
-                       />;
-            case 'contracts':
-                return <ContractListView 
-                            contracts={filteredContractList} 
-                            clients={clients} 
-                            onAdd={() => setModal({ type: 'contract', data: null })} 
-                            onEdit={(contract) => setModal({ type: 'contract', data: contract })} 
-                            onDelete={handleDeleteContract}
-                            onTogglePaidStatus={handleToggleContractPaidStatus}
-                            availableProviders={providers}
-                            selectedProvider={contractListProvider}
-                            onProviderChange={setContractListProvider}
-                            startDateFrom={contractListStartDateFrom}
-                            onStartDateFromChange={setContractListStartDateFrom}
-                            startDateTo={contractListStartDateTo}
-                            onStartDateToChange={setContractListStartDateTo}
-                            endDateFrom={contractListEndDateFrom}
-                            onEndDateFromChange={setContractListEndDateFrom}
-                            endDateTo={contractListEndDateTo}
-                            onEndDateToChange={setContractListEndDateTo}
-                       />;
-            case 'settings':
-                return <SettingsView 
-                    currentCredentials={credentials}
-                    onSave={handleSaveCredentials}
-                    providers={providers}
-                    onAddProvider={handleAddProvider}
-                    onDeleteProvider={handleDeleteProvider}
-                />;
-            default:
-                return null;
-        }
-    };
     
-    if (isAuthLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-slate-100 dark:bg-slate-900">
-                <Spinner size="lg" />
-            </div>
-        );
+    // --- Render Logic with Auth ---
+
+    if (isAuthChecking) {
+        return <div className="flex justify-center items-center h-screen bg-slate-50 dark:bg-slate-900"><Spinner size="lg" /></div>;
     }
 
     if (!isAuthenticated) {
-        return <LoginScreen onLogin={handleLogin} error={loginError} />;
+        return <Login onLogin={handleLogin} />;
+    }
+
+    if (loading) {
+        return <div className="flex justify-center items-center h-screen bg-slate-50 dark:bg-slate-900"><Spinner size="lg" /></div>;
     }
 
     return (
-        <div className="bg-slate-100 dark:bg-slate-900 min-h-screen">
-            <Sidebar 
-                currentView={currentView}
-                onNavigate={(view) => {
-                    setCurrentView(view);
-                    setIsSidebarOpen(false);
-                }}
-                expiringContractsCount={expiringContracts.length}
+        <div className={`flex h-screen bg-slate-100 dark:bg-slate-900 transition-colors duration-300 font-sans text-slate-900 dark:text-slate-100 overflow-hidden`}>
+            <Sidebar
+                currentView={view}
+                onNavigate={(v) => { setView(v); setIsSidebarOpen(false); }}
+                expiringContractsCount={contracts.filter(c => {
+                     if (!c.endDate) return false;
+                     const end = new Date(c.endDate);
+                     const now = new Date();
+                     const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                     return diff >= 0 && diff <= 30;
+                }).length}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
                 onLogout={handleLogout}
                 theme={theme}
-                onThemeSwitch={handleThemeSwitch}
+                onThemeSwitch={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
             />
-            
-            <main className="lg:pl-64 transition-all duration-300 ease-in-out">
-                <header className="sticky top-0 z-20 bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-sm p-4 border-b border-slate-200 dark:border-slate-700">
-                   <div className="flex items-center">
-                        <button 
-                            onClick={() => setIsSidebarOpen(true)}
-                            className="p-2 mr-4 text-slate-600 dark:text-slate-300 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 lg:hidden"
-                            aria-label="Apri menu"
-                        >
-                            <MenuIcon className="h-6 w-6" />
-                        </button>
-                        <div className="w-full max-w-lg">
-                            <button
-                                onClick={() => setIsSearchModalOpen(true)}
-                                className="w-full text-left bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md py-2 px-4 text-slate-500 dark:text-slate-400 flex items-center justify-between"
-                            >
-                                <span>Cerca...</span>
-                                <kbd className="hidden sm:inline-flex items-center px-2 py-1 text-xs font-sans font-medium text-slate-400 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md">
-                                    ⌘K
-                                </kbd>
-                            </button>
-                        </div>
-                   </div>
-                </header>
 
-                <div className="p-4 sm:p-6 lg:p-8">
-                    {renderContent()}
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                {/* Header for Mobile */}
+                <div className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                    <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-md text-slate-500 hover:text-slate-700 dark:text-slate-400">
+                        <MenuIcon className="h-6 w-6" />
+                    </button>
+                    <span className="font-bold text-lg">Mio CRM</span>
+                    <button onClick={() => setIsSearchModalOpen(true)} className="p-2 -mr-2 text-slate-500">
+                        <SearchIcon className="h-6 w-6" />
+                    </button>
                 </div>
-            </main>
+                
+                {/* Desktop Search Bar Area */}
+                <div className="hidden lg:flex items-center justify-between py-4 px-8 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                     <div className="w-full max-w-2xl">
+                         <GlobalSearchBar 
+                            query={searchQuery}
+                            onQueryChange={setSearchQuery}
+                            onClear={() => setSearchQuery('')}
+                            onFocus={() => setIsSearchModalOpen(true)}
+                            placeholder="Cerca velocemente..."
+                         />
+                     </div>
+                </div>
 
-            {modal?.type === 'client' && (
-                <ClientFormModal 
-                    isOpen={!!modal}
-                    onClose={() => setModal(null)}
-                    onSave={handleSaveClient}
-                    client={modal.data as Client | null}
-                    isSaving={isSaving}
-                />
-            )}
-            
-            {modal?.type === 'contract' && (
-                <ContractFormModal 
-                    isOpen={!!modal}
-                    onClose={() => setModal(null)}
-                    onSave={handleSaveContract}
-                    contract={modal.data as Contract | null}
-                    clients={clients}
-                    providers={providers}
-                    onAddProvider={handleAddProvider}
-                    isSaving={isSaving}
-                />
-            )}
-            
+                <main className="flex-1 overflow-y-auto p-4 sm:p-8 scroll-smooth">
+                    {view === 'dashboard' && (
+                        <div className="space-y-6 animate-fade-in">
+                            <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+                            
+                            {/* Dashboard Filters */}
+                            <div className="flex flex-wrap gap-4 mb-6 bg-white dark:bg-slate-800 p-4 rounded-lg shadow">
+                                <select value={dashboardYear} onChange={e => setDashboardYear(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600">
+                                    <option value="all">Tutti gli anni</option>
+                                    {Array.from(new Set(contracts.map(c => c.startDate ? new Date(c.startDate).getFullYear() : new Date().getFullYear()))).sort().map(y => (
+                                        <option key={y} value={y}>{y}</option>
+                                    ))}
+                                </select>
+                                <select value={dashboardMonth} onChange={e => setDashboardMonth(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600">
+                                    <option value="all">Tutti i mesi</option>
+                                    {Array.from({length: 12}, (_, i) => i + 1).map(m => (
+                                        <option key={m} value={m}>{new Date(0, m-1).toLocaleString('it-IT', {month: 'long'})}</option>
+                                    ))}
+                                </select>
+                                <select value={dashboardProvider} onChange={e => setDashboardProvider(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600">
+                                    <option value="all">Tutti i fornitori</option>
+                                    {providers.map(p => <option key={p} value={p}>{p}</option>)}
+                                </select>
+                            </div>
+
+                            <ExpiringContractsWidget 
+                                contracts={contracts.filter(c => {
+                                     if (!c.endDate) return false;
+                                     const end = new Date(c.endDate);
+                                     const now = new Date();
+                                     now.setHours(0,0,0,0);
+                                     const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                                     return diff >= 0 && diff <= 30;
+                                })} 
+                                clients={clients}
+                                onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
+                                onDelete={(id) => setItemToDelete({ id, type: 'contract' })}
+                            />
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                                <CombinedTotalsWidget 
+                                    totalClients={clients.length} 
+                                    totalContracts={filteredDashboardContracts.length}
+                                    selectedYear={dashboardYear}
+                                    selectedMonth={dashboardMonth}
+                                    selectedProvider={dashboardProvider}
+                                />
+                                <CommissionSummaryWidget 
+                                    totalCommission={totalCommission} 
+                                    energyCommission={energyCommission} 
+                                    telephonyCommission={telephonyCommission} 
+                                    selectedYear={dashboardYear} 
+                                    selectedMonth={dashboardMonth} 
+                                    selectedProvider={dashboardProvider} 
+                                />
+                                <CurrentMonthCommissionWidget 
+                                    totalCommission={currentMonthStats.total}
+                                    energyCommission={currentMonthStats.energy}
+                                    telephonyCommission={currentMonthStats.telephony}
+                                />
+                                <TotalProvidersWidget totalProviders={providers.length} energyProviderCount={energyProvidersCount} telephonyProviderCount={telephonyProvidersCount} />
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+                                    <h3 className="text-xl font-bold mb-4">Andamento Clienti</h3>
+                                    <ClientChart clients={clients} selectedYear={dashboardYear === 'all' ? new Date().getFullYear().toString() : dashboardYear} />
+                                </div>
+                                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+                                    <h3 className="text-xl font-bold mb-4">Andamento Contratti</h3>
+                                    <ContractChart contracts={contracts} selectedYear={dashboardYear} />
+                                </div>
+                                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+                                    <h3 className="text-xl font-bold mb-4">Andamento Provvigioni</h3>
+                                    <CommissionChart contracts={contracts} selectedYear={dashboardYear === 'all' ? new Date().getFullYear().toString() : dashboardYear} />
+                                </div>
+                            </div>
+                            
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <EnergyProviderPieChart contracts={filteredDashboardContracts.filter(c => c.type !== ContractType.Telephony)} />
+                                <TelephonyProviderPieChart contracts={filteredDashboardContracts.filter(c => c.type === ContractType.Telephony)} />
+                                <PaidStatusPieChart contracts={filteredDashboardContracts} />
+                            </div>
+                        </div>
+                    )}
+
+                    {view === 'clients' && (
+                        <ClientListView
+                            clients={clients}
+                            contracts={contracts}
+                            onAdd={() => { setEditingClient(null); setIsClientModalOpen(true); }}
+                            onEdit={(c) => { setEditingClient(c); setIsClientModalOpen(true); }}
+                            onDelete={(id) => setItemToDelete({ id, type: 'client' })}
+                        />
+                    )}
+
+                    {view === 'contracts' && (
+                        <ContractListView
+                            contracts={contracts.filter(c => {
+                                // Apply local filters for Contract List View
+                                if(contractProviderFilter !== 'all' && c.provider !== contractProviderFilter) return false;
+                                
+                                if(contractFilterYear !== 'all' && c.startDate) {
+                                    const y = new Date(c.startDate).getFullYear().toString();
+                                    if(y !== contractFilterYear) return false;
+                                }
+                                
+                                if(contractFilterMonth !== 'all' && c.startDate) {
+                                    const m = (new Date(c.startDate).getMonth() + 1).toString();
+                                    if(m !== contractFilterMonth) return false;
+                                }
+
+                                if(contractDateFrom && (!c.startDate || c.startDate < contractDateFrom)) return false;
+                                if(contractDateTo && (!c.startDate || c.startDate > contractDateTo)) return false;
+                                if(contractEndDateFrom && (!c.endDate || c.endDate < contractEndDateFrom)) return false;
+                                if(contractEndDateTo && (!c.endDate || c.endDate > contractEndDateTo)) return false;
+                                return true;
+                            })}
+                            clients={clients}
+                            onAdd={() => { setEditingContract(null); setIsContractModalOpen(true); }}
+                            onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
+                            onDelete={(id) => setItemToDelete({ id, type: 'contract' })}
+                            onTogglePaidStatus={togglePaidStatus}
+                            availableProviders={providers}
+                            selectedProvider={contractProviderFilter}
+                            onProviderChange={setContractProviderFilter}
+                            
+                            availableYears={availableYears}
+                            selectedYear={contractFilterYear}
+                            onYearChange={setContractFilterYear}
+                            selectedMonth={contractFilterMonth}
+                            onMonthChange={setContractFilterMonth}
+
+                            startDateFrom={contractDateFrom}
+                            onStartDateFromChange={setContractDateFrom}
+                            startDateTo={contractDateTo}
+                            onStartDateToChange={setContractDateTo}
+                            endDateFrom={contractEndDateFrom}
+                            onEndDateFromChange={setContractEndDateFrom}
+                            endDateTo={contractEndDateTo}
+                            onEndDateToChange={setContractEndDateTo}
+                        />
+                    )}
+
+                    {view === 'settings' && (
+                        <SettingsView 
+                            providers={providers}
+                            onAddProvider={handleAddProvider}
+                            onDeleteProvider={handleDeleteProvider}
+                        />
+                    )}
+                </main>
+            </div>
+
+            {/* Modals */}
+            <ClientFormModal
+                isOpen={isClientModalOpen}
+                onClose={() => setIsClientModalOpen(false)}
+                onSave={handleSaveClient}
+                client={editingClient}
+                isSaving={isSaving}
+                isSuccess={isClientSuccess}
+            />
+
+            <ContractFormModal
+                isOpen={isContractModalOpen}
+                onClose={() => setIsContractModalOpen(false)}
+                onSave={handleSaveContract}
+                contract={editingContract}
+                clients={clients}
+                providers={providers}
+                onAddProvider={handleAddProvider}
+                isSaving={isSaving}
+                isSuccess={isContractSuccess}
+            />
+
+            <ConfirmationModal
+                isOpen={!!itemToDelete}
+                onClose={() => setItemToDelete(null)}
+                onConfirm={confirmDelete}
+                title="Conferma eliminazione"
+                message={`Sei sicuro di voler eliminare questo ${itemToDelete?.type === 'client' ? 'cliente' : itemToDelete?.type === 'contract' ? 'contratto' : 'fornitore'}? Questa azione è irreversibile.`}
+                isConfirming={isDeleting}
+            />
+
             <SearchModal
                 isOpen={isSearchModalOpen}
                 onClose={() => setIsSearchModalOpen(false)}
                 query={searchQuery}
                 onQueryChange={setSearchQuery}
                 results={searchResults}
-                onClientClick={handleSearchClientClick}
-                onContractClick={handleSearchContractClick}
+                onClientClick={(c) => { setIsSearchModalOpen(false); setEditingClient(c); setIsClientModalOpen(true); }}
+                onContractClick={(c) => { setIsSearchModalOpen(false); setEditingContract(c); setIsContractModalOpen(true); }}
                 getClientName={getClientName}
             />
-            
-            {toast && (
-                <Toast
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={() => setToast(null)}
-                />
-            )}
 
-            {deletionDetails && (
-                <ConfirmationModal
-                    isOpen={!!itemToDelete}
-                    onClose={() => setItemToDelete(null)}
-                    onConfirm={confirmDelete}
-                    title={deletionDetails.title}
-                    message={deletionDetails.message}
-                    isConfirming={isDeleting}
-                />
-            )}
-        </div>
-    );
-};
-
-// --- Componente Vista Impostazioni ---
-const SettingsView: React.FC<{
-    currentCredentials: { username: string; password?: string };
-    onSave: (creds: { username: string; password: string }) => Promise<void>;
-    providers: string[];
-    onAddProvider: (provider: string) => Promise<void>;
-    onDeleteProvider: (provider: string) => void;
-}> = ({ currentCredentials, onSave, providers, onAddProvider, onDeleteProvider }) => {
-    const [username, setUsername] = useState(currentCredentials.username);
-    const [password, setPassword] = useState('');
-    const [newProvider, setNewProvider] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
-
-
-    const handleCredentialsSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSaving(true);
-        await onSave({ username, password });
-        setIsSaving(false);
-        setPassword('');
-    };
-
-    const handleAddProviderSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const trimmedProvider = newProvider.trim();
-        if (trimmedProvider) {
-            if (providers.some(p => p.toLowerCase() === trimmedProvider.toLowerCase())) {
-                alert('Questo fornitore esiste già.');
-            } else {
-                await onAddProvider(trimmedProvider);
-                setNewProvider('');
-            }
-        }
-    };
-
-
-    return (
-        <div className="max-w-2xl mx-auto">
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg animate-fade-in-down">
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Impostazioni Credenziali</h2>
-                <p className="mt-2 text-slate-600 dark:text-slate-400">
-                    Modifica le credenziali di accesso. Le modifiche saranno sincronizzate su tutti i dispositivi.
-                </p>
-
-                <form onSubmit={handleCredentialsSubmit} className="mt-6 space-y-4">
-                    <div>
-                        <label
-                            htmlFor="settings-username"
-                            className="block text-sm font-medium text-slate-700 dark:text-slate-300"
-                        >
-                            Nuovo Username
-                        </label>
-                        <input
-                            id="settings-username"
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            required
-                            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                        />
-                    </div>
-                    <div>
-                        <label
-                            htmlFor="settings-password"
-                            className="block text-sm font-medium text-slate-700 dark:text-slate-300"
-                        >
-                            Nuova Password
-                        </label>
-                        <input
-                            id="settings-password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            placeholder="Inserisci la nuova password"
-                            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                        />
-                    </div>
-                    <div className="pt-2 text-right">
-                        <button
-                            type="submit"
-                            disabled={isSaving}
-                            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors disabled:bg-sky-400"
-                        >
-                            {isSaving && <Spinner size="sm" color="border-white" className="mr-2" />}
-                            {isSaving ? 'Salvataggio...' : 'Salva Credenziali'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg mt-8 animate-fade-in-down">
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Gestione Fornitori</h2>
-                <p className="mt-2 text-slate-600 dark:text-slate-400">
-                    Aggiungi o rimuovi i fornitori disponibili per i contratti.
-                </p>
-
-                <form onSubmit={handleAddProviderSubmit} className="mt-6 flex items-center space-x-3">
-                    <input
-                        type="text"
-                        value={newProvider}
-                        onChange={(e) => setNewProvider(e.target.value)}
-                        placeholder="Nome nuovo fornitore"
-                        className="flex-grow block w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-                    />
-                    <button
-                        type="submit"
-                        className="inline-flex items-center justify-center px-4 py-2 bg-sky-500 text-white rounded-md shadow hover:bg-sky-600 transition disabled:bg-sky-300"
-                        disabled={!newProvider.trim()}
-                    >
-                        <PlusIcon className="h-5 w-5 mr-2" />
-                        Aggiungi
-                    </button>
-                </form>
-
-                <div className="mt-6 max-h-60 overflow-y-auto pr-2">
-                    <ul className="space-y-2">
-                        {providers.sort((a, b) => a.localeCompare(b)).map(provider => (
-                            <li key={provider} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-md animate-fade-in">
-                                <span className="font-medium text-slate-800 dark:text-slate-200">{provider}</span>
-                                <button
-                                    onClick={() => onDeleteProvider(provider)}
-                                    className="p-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full transition-colors"
-                                    aria-label={`Elimina ${provider}`}
-                                >
-                                    <TrashIcon className="h-5 w-5" />
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            </div>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         </div>
     );
 };

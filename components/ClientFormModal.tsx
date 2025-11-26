@@ -1,9 +1,63 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Client, Contract, Iban } from '../types';
 import { ContractType } from '../types';
-import { XIcon, PlusIcon, TrashIcon } from './Icons';
+import { XIcon, PlusIcon, TrashIcon, CheckCircleSolidIcon } from './Icons';
 import { Spinner } from './Spinner';
+
+// --- VALIDATION HELPERS ---
+
+const validateCodiceFiscale = (cf: string) => {
+    if (!cf) return true;
+    const normalizedCF = cf.toUpperCase();
+    // Regex che include anche i casi di omocodia (cifre sostituite da lettere L,M,N,P,Q,R,S,T,U,V)
+    const cfRegex = /^[A-Z]{6}[0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$/;
+    if (!cfRegex.test(normalizedCF)) return false;
+
+    const oddValues: { [key: string]: number } = {
+        '0': 1, '1': 0, '2': 5, '3': 7, '4': 9, '5': 13, '6': 15, '7': 17, '8': 19, '9': 21,
+        'A': 1, 'B': 0, 'C': 5, 'D': 7, 'E': 9, 'F': 13, 'G': 15, 'H': 17, 'I': 19, 'J': 21,
+        'K': 2, 'L': 4, 'M': 18, 'N': 20, 'O': 11, 'P': 3, 'Q': 6, 'R': 8, 'S': 12, 'T': 14,
+        'U': 16, 'V': 10, 'W': 22, 'X': 25, 'Y': 24, 'Z': 23
+    };
+    
+    const evenValues: { [key: string]: number } = {
+        '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+        'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'F': 5, 'G': 6, 'H': 7, 'I': 8, 'J': 9,
+        'K': 10, 'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19,
+        'U': 20, 'V': 21, 'W': 22, 'X': 23, 'Y': 24, 'Z': 25
+    };
+
+    let s = 0;
+    for (let i = 0; i < 15; i++) {
+        const c = normalizedCF[i];
+        if (i % 2 === 0) { // Indice pari => Posizione Dispari
+             if (oddValues[c] === undefined) return false;
+             s += oddValues[c];
+        } else { // Indice dispari => Posizione Pari
+             if (evenValues[c] === undefined) return false;
+             s += evenValues[c];
+        }
+    }
+    
+    const expectedChar = String.fromCharCode((s % 26) + 'A'.charCodeAt(0));
+    return expectedChar === normalizedCF[15];
+};
+
+const validatePartitaIva = (pi: string) => {
+    if (!pi) return true;
+    if (!/^[0-9]{11}$/.test(pi)) return false;
+    
+    let s = 0;
+    for(let i = 0; i < 11; i++) {
+        let n = parseInt(pi.charAt(i));
+        if (i % 2 === 1) { // Indice dispari => posizione pari
+            n *= 2;
+            if (n > 9) n -= 9;
+        }
+        s += n;
+    }
+    return (s % 10 === 0);
+};
 
 // --- MODAL PER CLIENTI ---
 interface ClientFormModalProps {
@@ -12,9 +66,10 @@ interface ClientFormModalProps {
   onSave: (clientData: Omit<Client, 'id' | 'createdAt'>) => void;
   client: Client | null;
   isSaving: boolean;
+  isSuccess?: boolean;
 }
 
-export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClose, onSave, client, isSaving }) => {
+export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClose, onSave, client, isSaving, isSuccess }) => {
   const getInitialFormData = () => ({
     firstName: '',
     lastName: '',
@@ -65,17 +120,23 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    let newValue = value;
+
+    if (name === 'codiceFiscale') {
+        newValue = value.toUpperCase();
+    }
+
      if (name.includes('.')) {
       const [addressType, field] = name.split('.') as ['legalAddress' | 'residentialAddress', string];
       setFormData(prev => ({
         ...prev,
         [addressType]: {
           ...prev[addressType],
-          [field]: value,
+          [field]: newValue,
         },
       }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData(prev => ({ ...prev, [name]: newValue }));
     }
   };
 
@@ -105,20 +166,18 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSaving) return;
+    if (isSaving || isSuccess) return;
     
     const validationErrors: { codiceFiscale?: string; pIva?: string; ibans?: (string | undefined)[] } = {};
 
     // Validazione Codice Fiscale
-    const cfRegex = /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i;
-    if (formData.codiceFiscale && !cfRegex.test(formData.codiceFiscale)) {
-        validationErrors.codiceFiscale = 'Il formato del Codice Fiscale non è valido. (Es. RSSMRA80A01H501A)';
+    if (formData.codiceFiscale && !validateCodiceFiscale(formData.codiceFiscale)) {
+        validationErrors.codiceFiscale = 'Il Codice Fiscale non è valido. Verifica il formato e il codice di controllo.';
     }
     
     // Validazione P.Iva
-    const pIvaRegex = /^[0-9]{11}$/;
-    if (formData.pIva && !pIvaRegex.test(formData.pIva)) {
-        validationErrors.pIva = 'La Partita IVA deve contenere 11 cifre.';
+    if (formData.pIva && !validatePartitaIva(formData.pIva)) {
+        validationErrors.pIva = 'La Partita IVA non è valida. Deve contenere 11 cifre e rispettare il codice di controllo.';
     }
 
     // Validazione IBAN
@@ -159,11 +218,11 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start p-4 overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start p-4 overflow-y-auto" onClick={!isSaving && !isSuccess ? onClose : undefined}>
       <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl relative transform transition-all my-8" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center p-5 border-b border-slate-200 sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-slate-800">{client ? 'Modifica Cliente' : 'Nuovo Cliente'}</h2>
-          <button onClick={onClose} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 transition">
+          <button onClick={onClose} disabled={isSaving || isSuccess} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 transition disabled:opacity-50">
             <XIcon className="h-6 w-6" />
           </button>
         </div>
@@ -171,7 +230,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
           <div className="space-y-6">
             
             {/* Dati Anagrafici */}
-            <fieldset>
+            <fieldset disabled={isSaving || isSuccess}>
               <legend className="text-lg font-semibold text-slate-800 mb-3 border-b pb-2">Dati Anagrafici</legend>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -210,6 +269,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
                         className={`mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 sm:text-sm ${errors.codiceFiscale ? 'border-red-500 text-red-900 focus:border-red-500 focus:ring-red-500' : 'border-slate-300'}`}
                         aria-invalid={!!errors.codiceFiscale}
                         aria-describedby={errors.codiceFiscale ? "codice-fiscale-error" : undefined}
+                        placeholder="RSSMRA80A01H501A"
                        />
                        {errors.codiceFiscale && <p id="codice-fiscale-error" className="mt-1 text-sm text-red-600">{errors.codiceFiscale}</p>}
                     </div>
@@ -224,6 +284,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
                             className={`mt-1 block w-full px-3 py-2 bg-white border rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 sm:text-sm ${errors.pIva ? 'border-red-500 text-red-900 focus:border-red-500 focus:ring-red-500' : 'border-slate-300'}`}
                             aria-invalid={!!errors.pIva}
                             aria-describedby={errors.pIva ? "piva-error" : undefined}
+                            placeholder="12345678901"
                         />
                         {errors.pIva && <p id="piva-error" className="mt-1 text-sm text-red-600">{errors.pIva}</p>}
                     </div>
@@ -232,7 +293,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
             </fieldset>
 
             {/* IBANs */}
-            <fieldset>
+            <fieldset disabled={isSaving || isSuccess}>
                 <legend className="text-lg font-semibold text-slate-800 mb-3 border-b pb-2">IBAN</legend>
                 <div className="space-y-4">
                 {formData.ibans.map((iban, index) => (
@@ -294,7 +355,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
             </fieldset>
 
             {/* Sede Legale */}
-            <fieldset>
+            <fieldset disabled={isSaving || isSuccess}>
               <legend className="text-lg font-semibold text-slate-800 mb-3 border-b pb-2">Indirizzo Sede Legale</legend>
               <div className="grid grid-cols-6 gap-4">
                   <div className="col-span-6 sm:col-span-4">
@@ -321,7 +382,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
             </fieldset>
             
             {/* Residenza */}
-            <fieldset>
+            <fieldset disabled={isSaving || isSuccess}>
               <legend className="text-lg font-semibold text-slate-800 mb-3 border-b pb-2">Indirizzo di Residenza</legend>
                <div className="grid grid-cols-6 gap-4">
                   <div className="col-span-6 sm:col-span-4">
@@ -349,18 +410,23 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
 
             <div>
               <label htmlFor="notes" className="block text-sm font-medium text-slate-700">Note Cliente</label>
-              <textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} rows={3} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"></textarea>
+              <textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} rows={3} disabled={isSaving || isSuccess} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"></textarea>
             </div>
           </div>
           <div className="flex justify-end pt-6 mt-6 border-t border-slate-200 space-x-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 transition">Annulla</button>
+            <button type="button" onClick={onClose} disabled={isSaving || isSuccess} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 transition disabled:opacity-50 disabled:cursor-not-allowed">Annulla</button>
             <button 
                 type="submit" 
-                disabled={isSaving}
-                className="inline-flex items-center justify-center px-6 py-2 bg-sky-500 text-white rounded-md shadow hover:bg-sky-600 transition disabled:bg-sky-300 disabled:cursor-not-allowed"
+                disabled={isSaving || isSuccess}
+                className={`inline-flex items-center justify-center px-6 py-2 rounded-md shadow transition disabled:cursor-not-allowed ${
+                    isSuccess 
+                        ? 'bg-green-500 text-white hover:bg-green-600' 
+                        : 'bg-sky-500 text-white hover:bg-sky-600 disabled:bg-sky-300'
+                }`}
             >
                 {isSaving && <Spinner size="sm" color="border-white" className="mr-2" />}
-                {isSaving ? 'Salvataggio...' : 'Salva'}
+                {isSuccess && <CheckCircleSolidIcon className="h-5 w-5 mr-2" />}
+                {isSuccess ? 'Salvato!' : (isSaving ? 'Salvataggio...' : 'Salva')}
             </button>
           </div>
         </form>
@@ -380,12 +446,14 @@ interface ContractFormModalProps {
   providers: string[];
   onAddProvider: (provider: string) => void;
   isSaving: boolean;
+  isSuccess?: boolean;
 }
 
-export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, onClose, onSave, contract, clients, providers, onAddProvider, isSaving }) => {
+export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, onClose, onSave, contract, clients, providers, onAddProvider, isSaving, isSuccess }) => {
   const getInitialFormData = () => ({
     clientId: '',
     type: ContractType.Electricity,
+    customerType: 'residential', // Valore di default
     provider: '',
     contractCode: '',
     startDate: '',
@@ -395,8 +463,8 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
     kw: '',
     volt: '',
     pdr: '',
-    remi: '', // Nuovo campo
-    meterSerial: '', // Nuovo campo
+    remi: '', 
+    meterSerial: '', 
     commission: '',
     isPaid: false,
     fiberType: '',
@@ -426,6 +494,7 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
         setFormData({
             clientId: contract.clientId,
             type: contract.type,
+            customerType: contract.customerType || 'residential',
             provider: contract.provider,
             contractCode: contract.contractCode,
             startDate: contract.startDate || '',
@@ -449,7 +518,6 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
             setShowNewProviderInput(false);
         }
 
-        // Logic per Custom Volt
         if (contract.volt && !standardVolts.includes(contract.volt)) {
             setShowNewVoltInput(true);
         } else {
@@ -506,7 +574,7 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if(isSaving) return;
+    if(isSaving || isSuccess) return;
 
     const trimmedProvider = formData.provider.trim();
     
@@ -516,9 +584,10 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
     }
     
     if (formData.clientId && trimmedProvider) {
-      const { commission, kw, ...rest } = formData;
+      const { commission, kw, customerType, ...rest } = formData;
       onSave({
         ...rest,
+        customerType: customerType as 'residential' | 'business',
         provider: trimmedProvider,
         commission: commission ? parseFloat(commission) : undefined,
         kw: kw ? parseFloat(kw) : undefined,
@@ -531,213 +600,227 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start p-4 overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start p-4 overflow-y-auto" onClick={!isSaving && !isSuccess ? onClose : undefined}>
       <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl relative transform transition-all my-8" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center p-5 border-b border-slate-200 sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-slate-800">{contract ? 'Modifica Contratto' : 'Nuovo Contratto'}</h2>
-          <button onClick={onClose} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 transition">
+          <button onClick={onClose} disabled={isSaving || isSuccess} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 transition disabled:opacity-50">
             <XIcon className="h-6 w-6" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 max-h-[75vh] overflow-y-auto">
           <div className="space-y-6">
-            <div>
-              <label htmlFor="clientId" className="block text-sm font-medium text-slate-700">Cliente *</label>
-              <select id="clientId" name="clientId" value={formData.clientId} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
-                <option value="" disabled>Seleziona un cliente</option>
-                {sortedClients.map(c => (
-                    <option key={c.id} value={c.id}>
-                        {`${c.lastName} ${c.firstName}${c.ragioneSociale ? ` (${c.ragioneSociale})` : ''}`}
-                    </option>
-                ))}
-              </select>
-            </div>
-            
-            <fieldset className="p-4 border border-slate-200 rounded-lg space-y-4 bg-slate-50">
-                <legend className="text-md font-semibold text-slate-700 px-2 -mb-2">Dettagli Contratto</legend>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="type" className="block text-sm font-medium text-slate-600">Tipo Contratto</label>
-                    <select id="type" name="type" value={formData.type} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
-                      <option value={ContractType.Electricity}>Energia Elettrica</option>
-                      <option value={ContractType.Gas}>Gas Naturale</option>
-                      <option value={ContractType.Telephony}>Telefonia</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="provider-select" className="block text-sm font-medium text-slate-600">Fornitore *</label>
-                    <div className="mt-1">
-                      <select
-                        id="provider-select"
-                        name="provider-select"
-                        value={showNewProviderInput ? 'add_new' : formData.provider}
-                        onChange={handleProviderSelectChange}
-                        className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-                      >
-                        <option value="" disabled>Seleziona un fornitore</option>
-                        {providers.sort().map(p => <option key={p} value={p}>{p}</option>)}
-                        <option value="add_new">-- Altro (Aggiungi nuovo) --</option>
-                      </select>
-                      {showNewProviderInput && (
-                        <div className="mt-2 animate-fade-in">
-                          <input
-                            type="text"
-                            name="provider"
-                            value={formData.provider}
-                            onChange={handleChange}
-                            required
-                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-                            placeholder="Nome nuovo fornitore"
-                            autoFocus
-                          />
-                        </div>
-                      )}
+            <div className="pointer-events-none-if-success" style={isSaving || isSuccess ? { pointerEvents: 'none', opacity: 0.7 } : {}}>
+                <div>
+                <label htmlFor="clientId" className="block text-sm font-medium text-slate-700">Cliente *</label>
+                <select id="clientId" name="clientId" value={formData.clientId} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
+                    <option value="" disabled>Seleziona un cliente</option>
+                    {sortedClients.map(c => (
+                        <option key={c.id} value={c.id}>
+                            {`${c.lastName} ${c.firstName}${c.ragioneSociale ? ` (${c.ragioneSociale})` : ''}`}
+                        </option>
+                    ))}
+                </select>
+                </div>
+                
+                <fieldset className="p-4 border border-slate-200 rounded-lg space-y-4 bg-slate-50 mt-4">
+                    <legend className="text-md font-semibold text-slate-700 px-2 -mb-2">Dettagli Contratto</legend>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="customerType" className="block text-sm font-medium text-slate-600">Tipologia Cliente</label>
+                        <select id="customerType" name="customerType" value={formData.customerType} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
+                            <option value="residential">Residenziale / Domestico</option>
+                            <option value="business">Business / Azienda</option>
+                        </select>
                     </div>
-                  </div>
-                  <div>
-                    <label htmlFor="contractCode" className="block text-sm font-medium text-slate-600">Codice Contratto</label>
-                    <input type="text" id="contractCode" name="contractCode" value={formData.contractCode} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
-                  </div>
-                   <div>
-                    <label htmlFor="commission" className="block text-sm font-medium text-slate-600">Provvigione (€)</label>
-                    <input type="number" id="commission" name="commission" value={formData.commission} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" min="0" step="0.01" placeholder="Es. 150.00" />
-                  </div>
-                  
-                  {formData.type === ContractType.Electricity && (
-                    <>
-                        <div>
-                            <label htmlFor="pod" className="block text-sm font-medium text-slate-600">Codice POD</label>
-                            <input type="text" id="pod" name="pod" value={formData.pod || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
-                        </div>
-                        <div>
-                            <label htmlFor="kw" className="block text-sm font-medium text-slate-600">Potenza (kW)</label>
-                            <input type="number" id="kw" name="kw" value={formData.kw || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" step="0.1" min="0" />
-                        </div>
-                        <div>
-                            <label htmlFor="volt-select" className="block text-sm font-medium text-slate-600">Voltaggio (V)</label>
-                             <div className="mt-1">
-                                <select
-                                    id="volt-select"
-                                    name="volt-select"
-                                    value={showNewVoltInput ? 'add_new' : formData.volt}
-                                    onChange={handleVoltSelectChange}
-                                    className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-                                >
-                                    <option value="">Seleziona voltaggio</option>
-                                    {standardVolts.map(v => <option key={v} value={v}>{v}</option>)}
-                                    <option value="add_new">-- Altro --</option>
-                                </select>
-                                {showNewVoltInput && (
-                                    <div className="mt-2 animate-fade-in">
-                                        <input
-                                            type="text"
-                                            name="volt"
-                                            value={formData.volt}
-                                            onChange={handleChange}
-                                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-                                            placeholder="Specifica voltaggio"
-                                            autoFocus
-                                        />
-                                    </div>
-                                )}
+                    <div>
+                        <label htmlFor="type" className="block text-sm font-medium text-slate-600">Tipo Contratto</label>
+                        <select id="type" name="type" value={formData.type} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
+                        <option value={ContractType.Electricity}>Energia Elettrica</option>
+                        <option value={ContractType.Gas}>Gas Naturale</option>
+                        <option value={ContractType.Telephony}>Telefonia</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="provider-select" className="block text-sm font-medium text-slate-600">Fornitore *</label>
+                        <div className="mt-1">
+                        <select
+                            id="provider-select"
+                            name="provider-select"
+                            value={showNewProviderInput ? 'add_new' : formData.provider}
+                            onChange={handleProviderSelectChange}
+                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                        >
+                            <option value="" disabled>Seleziona un fornitore</option>
+                            {providers.sort().map(p => <option key={p} value={p}>{p}</option>)}
+                            <option value="add_new">-- Altro (Aggiungi nuovo) --</option>
+                        </select>
+                        {showNewProviderInput && (
+                            <div className="mt-2 animate-fade-in">
+                            <input
+                                type="text"
+                                name="provider"
+                                value={formData.provider}
+                                onChange={handleChange}
+                                required
+                                className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                                placeholder="Nome nuovo fornitore"
+                                autoFocus
+                            />
                             </div>
+                        )}
                         </div>
-                        <div>
-                            <label htmlFor="meterSerial" className="block text-sm font-medium text-slate-600">Matricola Contatore</label>
-                            <input type="text" id="meterSerial" name="meterSerial" value={formData.meterSerial || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
-                        </div>
-                    </>
-                  )}
-
-                  {formData.type === ContractType.Gas && (
-                    <>
-                        <div>
-                        <label htmlFor="pdr" className="block text-sm font-medium text-slate-600">Codice PDR</label>
-                        <input type="text" id="pdr" name="pdr" value={formData.pdr || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
-                        </div>
-                        <div>
-                            <label htmlFor="remi" className="block text-sm font-medium text-slate-600">Codice Remi</label>
-                            <input type="text" id="remi" name="remi" value={formData.remi || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
-                        </div>
-                        <div>
-                            <label htmlFor="meterSerial" className="block text-sm font-medium text-slate-600">Matricola Contatore</label>
-                            <input type="text" id="meterSerial" name="meterSerial" value={formData.meterSerial || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
-                        </div>
-                    </>
-                  )}
-
-                  {formData.type === ContractType.Telephony && (
-                    <div className="md:col-span-2">
-                      <label htmlFor="fiberType" className="block text-sm font-medium text-slate-600">Tipo Fibra</label>
-                      <input type="text" id="fiberType" name="fiberType" value={formData.fiberType || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
                     </div>
-                  )}
-                  
-                  <div>
-                    <label htmlFor="startDate" className="block text-sm font-medium text-slate-600">Data Inizio</label>
-                    <input type="date" id="startDate" name="startDate" value={formData.startDate} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
-                  </div>
-                  <div>
-                    <label htmlFor="endDate" className="block text-sm font-medium text-slate-600">Data Scadenza (Opzionale)</label>
-                    <input type="date" id="endDate" name="endDate" value={formData.endDate || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
-                  </div>
-                   <div className="md:col-span-2 flex items-center pt-2">
-                    <input
-                      type="checkbox"
-                      id="isPaid"
-                      name="isPaid"
-                      checked={!!formData.isPaid}
-                      onChange={(e) => setFormData(prev => ({ ...prev, isPaid: e.target.checked }))}
-                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                    />
-                    <label htmlFor="isPaid" className="ml-3 block text-sm font-medium text-slate-700">
-                      Provvigione Pagata
-                    </label>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label htmlFor="contract-notes" className="block text-sm font-medium text-slate-600">Note Contratto</label>
-                    <textarea id="contract-notes" name="notes" value={formData.notes || ''} onChange={handleChange} rows={3} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"></textarea>
-                  </div>
-              </div>
-            </fieldset>
+                    <div>
+                        <label htmlFor="contractCode" className="block text-sm font-medium text-slate-600">Codice Contratto</label>
+                        <input type="text" id="contractCode" name="contractCode" value={formData.contractCode} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                    </div>
+                    <div>
+                        <label htmlFor="commission" className="block text-sm font-medium text-slate-600">Provvigione (€)</label>
+                        <input type="number" id="commission" name="commission" value={formData.commission} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" min="0" step="0.01" placeholder="Es. 150.00" />
+                    </div>
+                    
+                    {formData.type === ContractType.Electricity && (
+                        <>
+                            <div>
+                                <label htmlFor="pod" className="block text-sm font-medium text-slate-600">Codice POD</label>
+                                <input type="text" id="pod" name="pod" value={formData.pod || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                            </div>
+                            <div>
+                                <label htmlFor="kw" className="block text-sm font-medium text-slate-600">Potenza Impegnata (kW)</label>
+                                <input type="number" id="kw" name="kw" value={formData.kw || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" step="0.01" min="0" />
+                            </div>
+                            <div>
+                                <label htmlFor="volt-select" className="block text-sm font-medium text-slate-600">Voltaggio (V)</label>
+                                <div className="mt-1">
+                                    <select
+                                        id="volt-select"
+                                        name="volt-select"
+                                        value={showNewVoltInput ? 'add_new' : formData.volt}
+                                        onChange={handleVoltSelectChange}
+                                        className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                                    >
+                                        <option value="">Seleziona voltaggio</option>
+                                        {standardVolts.map(v => <option key={v} value={v}>{v}</option>)}
+                                        <option value="add_new">-- Altro --</option>
+                                    </select>
+                                    {showNewVoltInput && (
+                                        <div className="mt-2 animate-fade-in">
+                                            <input
+                                                type="text"
+                                                name="volt"
+                                                value={formData.volt}
+                                                onChange={handleChange}
+                                                className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                                                placeholder="Specifica voltaggio"
+                                                autoFocus
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div>
+                                <label htmlFor="meterSerial" className="block text-sm font-medium text-slate-600">Matricola Contatore</label>
+                                <input type="text" id="meterSerial" name="meterSerial" value={formData.meterSerial || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                            </div>
+                        </>
+                    )}
 
-            <fieldset>
-              <legend className="text-lg font-semibold text-slate-800 mb-3 border-b pb-2">Indirizzo di Fornitura</legend>
-               <div className="grid grid-cols-6 gap-4">
-                  <div className="col-span-6 sm:col-span-4">
-                      <label htmlFor="supplyAddress.street" className="block text-sm font-medium text-slate-700">Via e Civico</label>
-                      <input type="text" id="supplyAddress.street" name="supplyAddress.street" value={formData.supplyAddress?.street || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm" />
-                  </div>
-                  <div className="col-span-6 sm:col-span-2">
-                      <label htmlFor="supplyAddress.zipCode" className="block text-sm font-medium text-slate-700">CAP</label>
-                      <input type="text" id="supplyAddress.zipCode" name="supplyAddress.zipCode" value={formData.supplyAddress?.zipCode || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm" />
-                  </div>
-                   <div className="col-span-6 sm:col-span-3">
-                      <label htmlFor="supplyAddress.city" className="block text-sm font-medium text-slate-700">Comune</label>
-                      <input type="text" id="supplyAddress.city" name="supplyAddress.city" value={formData.supplyAddress?.city || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm" />
-                  </div>
-                   <div className="col-span-6 sm:col-span-3">
-                      <label htmlFor="supplyAddress.state" className="block text-sm font-medium text-slate-700">Provincia (es. MI)</label>
-                      <input type="text" id="supplyAddress.state" name="supplyAddress.state" value={formData.supplyAddress?.state || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm" />
-                  </div>
-                  <div className="col-span-6">
-                      <label htmlFor="supplyAddress.country" className="block text-sm font-medium text-slate-700">Nazione</label>
-                      <input type="text" id="supplyAddress.country" name="supplyAddress.country" value={formData.supplyAddress?.country || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm" />
-                  </div>
-              </div>
-            </fieldset>
+                    {formData.type === ContractType.Gas && (
+                        <>
+                            <div>
+                            <label htmlFor="pdr" className="block text-sm font-medium text-slate-600">Codice PDR</label>
+                            <input type="text" id="pdr" name="pdr" value={formData.pdr || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                            </div>
+                            <div>
+                                <label htmlFor="remi" className="block text-sm font-medium text-slate-600">Codice Remi</label>
+                                <input type="text" id="remi" name="remi" value={formData.remi || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                            </div>
+                            <div>
+                                <label htmlFor="meterSerial" className="block text-sm font-medium text-slate-600">Matricola Contatore</label>
+                                <input type="text" id="meterSerial" name="meterSerial" value={formData.meterSerial || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                            </div>
+                        </>
+                    )}
+
+                    {formData.type === ContractType.Telephony && (
+                        <div className="md:col-span-2">
+                        <label htmlFor="fiberType" className="block text-sm font-medium text-slate-600">Tipo Fibra</label>
+                        <input type="text" id="fiberType" name="fiberType" value={formData.fiberType || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                        </div>
+                    )}
+                    
+                    <div>
+                        <label htmlFor="startDate" className="block text-sm font-medium text-slate-600">Data Inizio</label>
+                        <input type="date" id="startDate" name="startDate" value={formData.startDate} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                    </div>
+                    <div>
+                        <label htmlFor="endDate" className="block text-sm font-medium text-slate-600">Data Scadenza (Opzionale)</label>
+                        <input type="date" id="endDate" name="endDate" value={formData.endDate || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
+                    </div>
+                    <div className="md:col-span-2 flex items-center pt-2">
+                        <input
+                        type="checkbox"
+                        id="isPaid"
+                        name="isPaid"
+                        checked={!!formData.isPaid}
+                        onChange={(e) => setFormData(prev => ({ ...prev, isPaid: e.target.checked }))}
+                        className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                        <label htmlFor="isPaid" className="ml-3 block text-sm font-medium text-slate-700">
+                        Provvigione Pagata
+                        </label>
+                    </div>
+                    <div className="md:col-span-2">
+                        <label htmlFor="contract-notes" className="block text-sm font-medium text-slate-600">Note Contratto</label>
+                        <textarea id="contract-notes" name="notes" value={formData.notes || ''} onChange={handleChange} rows={3} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"></textarea>
+                    </div>
+                </div>
+                </fieldset>
+
+                <fieldset className="mt-4">
+                <legend className="text-lg font-semibold text-slate-800 mb-3 border-b pb-2">Indirizzo di Fornitura</legend>
+                <div className="grid grid-cols-6 gap-4">
+                    <div className="col-span-6 sm:col-span-4">
+                        <label htmlFor="supplyAddress.street" className="block text-sm font-medium text-slate-700">Via e Civico</label>
+                        <input type="text" id="supplyAddress.street" name="supplyAddress.street" value={formData.supplyAddress?.street || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm" />
+                    </div>
+                    <div className="col-span-6 sm:col-span-2">
+                        <label htmlFor="supplyAddress.zipCode" className="block text-sm font-medium text-slate-700">CAP</label>
+                        <input type="text" id="supplyAddress.zipCode" name="supplyAddress.zipCode" value={formData.supplyAddress?.zipCode || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm" />
+                    </div>
+                    <div className="col-span-6 sm:col-span-3">
+                        <label htmlFor="supplyAddress.city" className="block text-sm font-medium text-slate-700">Comune</label>
+                        <input type="text" id="supplyAddress.city" name="supplyAddress.city" value={formData.supplyAddress?.city || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm" />
+                    </div>
+                    <div className="col-span-6 sm:col-span-3">
+                        <label htmlFor="supplyAddress.state" className="block text-sm font-medium text-slate-700">Provincia (es. MI)</label>
+                        <input type="text" id="supplyAddress.state" name="supplyAddress.state" value={formData.supplyAddress?.state || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm" />
+                    </div>
+                    <div className="col-span-6">
+                        <label htmlFor="supplyAddress.country" className="block text-sm font-medium text-slate-700">Nazione</label>
+                        <input type="text" id="supplyAddress.country" name="supplyAddress.country" value={formData.supplyAddress?.country || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm" />
+                    </div>
+                </div>
+                </fieldset>
+            </div>
 
           </div>
 
           <div className="flex justify-end pt-6 mt-6 border-t border-slate-200 space-x-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 transition">Annulla</button>
+            <button type="button" onClick={onClose} disabled={isSaving || isSuccess} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 transition disabled:opacity-50 disabled:cursor-not-allowed">Annulla</button>
             <button 
                 type="submit" 
-                disabled={isSaving}
-                className="inline-flex items-center justify-center px-6 py-2 bg-sky-500 text-white rounded-md shadow hover:bg-sky-600 transition disabled:bg-sky-300 disabled:cursor-not-allowed"
+                disabled={isSaving || isSuccess}
+                className={`inline-flex items-center justify-center px-6 py-2 rounded-md shadow transition disabled:cursor-not-allowed ${
+                    isSuccess 
+                        ? 'bg-green-500 text-white hover:bg-green-600' 
+                        : 'bg-sky-500 text-white hover:bg-sky-600 disabled:bg-sky-300'
+                }`}
             >
                 {isSaving && <Spinner size="sm" color="border-white" className="mr-2" />}
-                {isSaving ? 'Salvataggio...' : 'Salva Contratto'}
+                {isSuccess && <CheckCircleSolidIcon className="h-5 w-5 mr-2" />}
+                {isSuccess ? 'Salvato!' : (isSaving ? 'Salvataggio...' : 'Salva Contratto')}
             </button>
           </div>
         </form>
