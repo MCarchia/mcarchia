@@ -132,7 +132,15 @@ const App: React.FC = () => {
     const [providers, setProviders] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState<'dashboard' | 'clients' | 'contracts' | 'settings'>('dashboard');
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    
+    // Initial sidebar state: open on desktop (>= 1024px), closed on mobile
+    const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return window.innerWidth >= 1024;
+        }
+        return false;
+    });
+
     const [theme, setTheme] = useState<'light' | 'dark'>('light');
     
     // Modals & Toast State
@@ -166,6 +174,20 @@ const App: React.FC = () => {
     const [dashboardYear, setDashboardYear] = useState(new Date().getFullYear().toString());
     const [dashboardMonth, setDashboardMonth] = useState((new Date().getMonth() + 1).toString());
     const [dashboardProvider, setDashboardProvider] = useState('all');
+
+    // Handle screen resize to auto-adjust sidebar if needed (optional UX enhancement)
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 1024) {
+                 // Optional: auto-open on resize to desktop, or keep user preference?
+                 // Let's keep user preference for now, but ensure it's functional.
+            } else {
+                setIsSidebarOpen(false); // Auto-close on resize to mobile
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // --- Authentication Logic ---
     useEffect(() => {
@@ -441,7 +463,10 @@ const App: React.FC = () => {
         <div className={`flex h-screen bg-slate-100 dark:bg-slate-900 transition-colors duration-300 font-sans text-slate-900 dark:text-slate-100 overflow-hidden`}>
             <Sidebar
                 currentView={view}
-                onNavigate={(v) => { setView(v); setIsSidebarOpen(false); }}
+                onNavigate={(v) => { 
+                    setView(v); 
+                    if (window.innerWidth < 1024) setIsSidebarOpen(false); 
+                }}
                 expiringContractsCount={contracts.filter(c => {
                      if (!c.endDate) return false;
                      const end = new Date(c.endDate);
@@ -456,7 +481,8 @@ const App: React.FC = () => {
                 onThemeSwitch={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
             />
 
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            {/* Main Content Wrapper - Shifts when sidebar is open on desktop */}
+            <div className={`flex-1 flex flex-col min-w-0 overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}>
                 {/* Header for Mobile */}
                 <div className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                     <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-md text-slate-500 hover:text-slate-700 dark:text-slate-400">
@@ -469,15 +495,25 @@ const App: React.FC = () => {
                 </div>
                 
                 {/* Desktop Search Bar Area */}
-                <div className="hidden lg:flex items-center justify-between py-4 px-8 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-                     <div className="w-full max-w-2xl">
-                         <GlobalSearchBar 
-                            query={searchQuery}
-                            onQueryChange={setSearchQuery}
-                            onClear={() => setSearchQuery('')}
-                            onFocus={() => setIsSearchModalOpen(true)}
-                            placeholder="Cerca velocemente..."
-                         />
+                <div className="hidden lg:flex items-center justify-between py-4 px-8 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 transition-all">
+                     <div className="flex items-center w-full max-w-3xl">
+                         {/* Desktop Sidebar Toggle Button */}
+                         <button 
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+                            className="mr-4 p-2 rounded-md text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700 transition-colors"
+                            title={isSidebarOpen ? "Chiudi menu laterale" : "Apri menu laterale"}
+                         >
+                            <MenuIcon className="h-6 w-6" />
+                         </button>
+                         <div className="flex-1">
+                             <GlobalSearchBar 
+                                query={searchQuery}
+                                onQueryChange={setSearchQuery}
+                                onClear={() => setSearchQuery('')}
+                                onFocus={() => setIsSearchModalOpen(true)}
+                                placeholder="Cerca velocemente..."
+                             />
+                         </div>
                      </div>
                 </div>
 
