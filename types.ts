@@ -8,8 +8,9 @@ export enum ContractType {
 export interface Contract {
   id: string;
   clientId: string;
-  type: ContractType;
-  customerType?: 'residential' | 'business'; // Nuovo campo: Residenziale o Business
+  type: string; // 'electricity' | 'gas' | 'telephony'
+  operationType?: string; // Nuova Attivazione, Switch, Voltura, Subentro
+  customerType?: 'residential' | 'business';
   provider: string;
   contractCode: string;
   startDate: string;

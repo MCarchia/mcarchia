@@ -1,3 +1,4 @@
+
 import type { Client, Contract } from '../types';
 import * as firebaseApi from './firebaseApi';
 
@@ -50,6 +51,20 @@ export const addProvider = async (newProvider: string): Promise<string[]> => {
 export const deleteProvider = async (providerToDelete: string): Promise<string[]> => {
     return firebaseApi.deleteProvider(providerToDelete);
 };
+
+// --- Operation Types API (Switch, Voltura...) ---
+export const getAllOperationTypes = async (): Promise<string[]> => {
+    return firebaseApi.getAllOperationTypes();
+};
+
+export const addOperationType = async (newType: string): Promise<string[]> => {
+    return firebaseApi.addOperationType(newType);
+};
+
+export const deleteOperationType = async (typeToDelete: string): Promise<string[]> => {
+    return firebaseApi.deleteOperationType(typeToDelete);
+};
+
 
 // --- Credentials API ---
 export const getCredentials = async (): Promise<{username: string, password: string}> => {

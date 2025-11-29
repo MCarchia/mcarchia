@@ -5,11 +5,12 @@ import { Client, Contract, ContractType } from './types';
 import Sidebar from './components/Sidebar';
 import { ClientListView } from './components/ClientListView';
 import { ContractListView } from './components/ContractListView';
-import { ClientFormModal, ContractFormModal } from './components/ClientFormModal';
+import { ClientFormModal } from './components/ClientFormModal';
+import { ContractFormModal } from './components/ContractFormModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import SearchModal from './components/SearchModal';
 import GlobalSearchBar from './components/GlobalSearchBar';
-import { MenuIcon, SearchIcon, EyeIcon, EyeOffIcon } from './components/Icons';
+import { MenuIcon, SearchIcon, EyeIcon, EyeOffIcon, FilterIcon, TrashIcon } from './components/Icons';
 import Login from './components/Login';
 
 // Dashboard widgets
@@ -23,7 +24,9 @@ import TotalProvidersWidget from './components/TotalProvidersWidget';
 import PaidStatusPieChart from './components/PaidStatusPieChart';
 import EnergyProviderPieChart from './components/EnergyProviderPieChart';
 import TelephonyProviderPieChart from './components/TelephonyProviderPieChart';
+import ContractExpiryStatusPieChart from './components/ContractExpiryStatusPieChart';
 import ExpiringContractsWidget from './components/ExpiringContractsWidget';
+import CheckupWidget, { CheckupItem } from './components/CheckupWidget';
 import { Spinner } from './components/Spinner';
 
 // Simple Toast Component (internal)
@@ -34,13 +37,29 @@ const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 
     </div>
 );
 
-// Settings Component (internal for simplicity)
-const SettingsView = ({ providers, onAddProvider, onDeleteProvider }: { providers: string[], onAddProvider: (p: string) => Promise<void>, onDeleteProvider: (p: string) => Promise<void> }) => {
+// Settings Component
+const SettingsView = ({ 
+    providers, 
+    onAddProvider, 
+    onDeleteProvider,
+    operationTypes,
+    onAddOperationType,
+    onDeleteOperationType
+}: { 
+    providers: string[], 
+    onAddProvider: (p: string) => Promise<void>, 
+    onDeleteProvider: (p: string) => Promise<void>,
+    operationTypes: string[],
+    onAddOperationType: (t: string) => Promise<void>,
+    onDeleteOperationType: (t: string) => Promise<void>
+}) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [newProvider, setNewProvider] = useState('');
     const [msg, setMsg] = useState('');
+
+    const [newOperationType, setNewOperationType] = useState('');
 
     useEffect(() => {
         api.getCredentials().then(c => {
@@ -67,11 +86,19 @@ const SettingsView = ({ providers, onAddProvider, onDeleteProvider }: { provider
         setNewProvider('');
     }
 
+    const handleAddOpType = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if(!newOperationType) return;
+        await onAddOperationType(newOperationType);
+        setNewOperationType('');
+    }
+
     return (
-        <div className="p-6 bg-white dark:bg-slate-800 rounded-lg shadow">
+        <div className="p-6 bg-white dark:bg-slate-800 rounded-lg shadow space-y-8">
             <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-100">Impostazioni</h2>
             
-            <div className="mb-8">
+            {/* Credenziali */}
+            <div>
                 <h3 className="text-lg font-semibold mb-2 text-slate-700 dark:text-slate-200">Credenziali Admin</h3>
                 <form onSubmit={handleSaveCreds} className="space-y-4 max-w-md">
                     <div>
@@ -102,13 +129,50 @@ const SettingsView = ({ providers, onAddProvider, onDeleteProvider }: { provider
                 </form>
             </div>
 
+            <hr className="border-slate-200 dark:border-slate-700" />
+
+            {/* Gestione Tipi Operazione (Switch, Voltura...) */}
+            <div>
+                    <h3 className="text-lg font-semibold mb-2 text-slate-700 dark:text-slate-200">Tipi Operazione</h3>
+                    <p className="text-sm text-slate-500 mb-4">Etichette per il tipo di operazione (Switch, Voltura, Subentro, etc.).</p>
+                    
+                    <form onSubmit={handleAddOpType} className="flex gap-2 mb-4 max-w-md">
+                        <input 
+                        type="text" 
+                        value={newOperationType} 
+                        onChange={e => setNewOperationType(e.target.value)} 
+                        placeholder="Es. Switch, Voltura..." 
+                        className="flex-1 border p-2 rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" 
+                        required
+                        />
+                        <button type="submit" className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Aggiungi</button>
+                    </form>
+
+                    <div className="border rounded divide-y dark:border-slate-700 dark:divide-slate-700 max-h-60 overflow-y-auto max-w-md">
+                        {operationTypes.map(type => (
+                            <div key={type} className="p-2 flex justify-between items-center bg-white dark:bg-slate-800 dark:text-slate-200 text-sm">
+                                <span>{type}</span>
+                                <button 
+                                onClick={() => onDeleteOperationType(type)} 
+                                className="text-red-500 hover:text-red-700 p-1"
+                                >
+                                <TrashIcon className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+            </div>
+
+            <hr className="border-slate-200 dark:border-slate-700" />
+
+            {/* Gestione Fornitori */}
             <div>
                  <h3 className="text-lg font-semibold mb-2 text-slate-700 dark:text-slate-200">Gestione Fornitori</h3>
                  <form onSubmit={handleAdd} className="flex gap-2 mb-4 max-w-md">
                      <input type="text" value={newProvider} onChange={e => setNewProvider(e.target.value)} placeholder="Nuovo fornitore" className="flex-1 border p-2 rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
                      <button type="submit" className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Aggiungi</button>
                  </form>
-                 <ul className="max-w-md border rounded divide-y dark:border-slate-700 dark:divide-slate-700">
+                 <ul className="max-w-md border rounded divide-y dark:border-slate-700 dark:divide-slate-700 max-h-60 overflow-y-auto">
                      {providers.map(p => (
                          <li key={p} className="p-2 flex justify-between items-center bg-white dark:bg-slate-800 dark:text-slate-200">
                              {p}
@@ -130,6 +194,7 @@ const App: React.FC = () => {
     const [clients, setClients] = useState<Client[]>([]);
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [providers, setProviders] = useState<string[]>([]);
+    const [operationTypes, setOperationTypes] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState<'dashboard' | 'clients' | 'contracts' | 'settings'>('dashboard');
     
@@ -145,7 +210,7 @@ const App: React.FC = () => {
     
     // Modals & Toast State
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
-    const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'client' | 'contract' | 'provider' } | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'client' | 'contract' | 'provider' | 'operationType' } | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     
     const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -172,15 +237,18 @@ const App: React.FC = () => {
 
     // Dashboard Filter State
     const [dashboardYear, setDashboardYear] = useState(new Date().getFullYear().toString());
-    const [dashboardMonth, setDashboardMonth] = useState((new Date().getMonth() + 1).toString());
+    const [dashboardMonth, setDashboardMonth] = useState('all');
     const [dashboardProvider, setDashboardProvider] = useState('all');
+
+    // Pie Chart Specific Filter State
+    const [pieChartYear, setPieChartYear] = useState(new Date().getFullYear().toString());
+    const [pieChartMonth, setPieChartMonth] = useState('all');
 
     // Handle screen resize to auto-adjust sidebar if needed (optional UX enhancement)
     useEffect(() => {
         const handleResize = () => {
             if (window.innerWidth >= 1024) {
                  // Optional: auto-open on resize to desktop, or keep user preference?
-                 // Let's keep user preference for now, but ensure it's functional.
             } else {
                 setIsSidebarOpen(false); // Auto-close on resize to mobile
             }
@@ -218,21 +286,23 @@ const App: React.FC = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [clientsData, contractsData, providersData] = await Promise.all([
+                const [clientsData, contractsData, providersData, opsData] = await Promise.all([
                     api.getAllClients(),
                     api.getAllContracts(),
-                    api.getAllProviders()
+                    api.getAllProviders(),
+                    api.getAllOperationTypes()
                 ]);
                 setClients(clientsData || []);
                 setContracts(contractsData || []);
                 setProviders(providersData || []);
+                setOperationTypes(opsData || []);
             } catch (error) {
                 console.error("Failed to load data", error);
                 setToast({ message: "Errore caricamento dati. Verifica la console.", type: 'error' });
-                // Initialize with empty arrays to prevent crashes
                 setClients([]);
                 setContracts([]);
                 setProviders([]);
+                setOperationTypes([]);
             } finally {
                 setLoading(false);
             }
@@ -248,6 +318,16 @@ const App: React.FC = () => {
             document.documentElement.classList.remove('dark');
         }
     }, [theme]);
+
+    // Toast Timer Handling (7 seconds)
+    useEffect(() => {
+        if (toast) {
+            const timer = setTimeout(() => {
+                setToast(null);
+            }, 7000);
+            return () => clearTimeout(timer);
+        }
+    }, [toast]);
 
     // Search Logic
     const searchResults = useMemo(() => {
@@ -307,13 +387,13 @@ const App: React.FC = () => {
                 const updatedProviders = await api.deleteProvider(idString);
                 setProviders(updatedProviders);
                 setToast({ message: "Fornitore eliminato con successo!", type: 'success' });
+            } else if (type === 'operationType') {
+                const updatedOps = await api.deleteOperationType(idString);
+                setOperationTypes(updatedOps);
+                setToast({ message: "Tipo operazione eliminato!", type: 'success' });
             }
         } catch (e: any) {
             let errorMessage = "Eliminazione fallita.";
-            if (type === 'client') errorMessage = "Impossibile eliminare il cliente.";
-            else if (type === 'contract') errorMessage = "Impossibile eliminare il contratto.";
-            else if (type === 'provider') errorMessage = "Impossibile eliminare il fornitore.";
-
             const errorDetails = e instanceof Error ? e.message : String(e);
             console.error("Deletion error:", errorDetails);
             setToast({ message: `${errorMessage}: ${errorDetails}`, type: 'error' });
@@ -338,6 +418,23 @@ const App: React.FC = () => {
     const handleDeleteProvider = async (provider: string) => {
         setItemToDelete({ id: provider, type: 'provider' });
     };
+
+    const handleAddOperationType = async (name: string) => {
+        try {
+            const updated = await api.addOperationType(name);
+            setOperationTypes(updated);
+            setToast({ message: "Tipo operazione aggiunto!", type: 'success' });
+        } catch (e: any) {
+             const errorDetails = e instanceof Error ? e.message : String(e);
+            console.error("Add op type error:", errorDetails);
+            setToast({ message: "Errore aggiunta tipo operazione.", type: 'error' });
+        }
+    };
+
+    const handleDeleteOperationType = async (name: string) => {
+        setItemToDelete({ id: name, type: 'operationType' });
+    };
+
 
     // --- Create/Update Logic ---
     const handleSaveClient = async (clientData: Omit<Client, 'id' | 'createdAt'>) => {
@@ -419,8 +516,15 @@ const App: React.FC = () => {
     }, [contracts, dashboardProvider, dashboardYear, dashboardMonth]);
 
     const totalCommission = useMemo(() => filteredDashboardContracts.reduce((sum, c) => sum + (c.commission || 0), 0), [filteredDashboardContracts]);
-    const energyCommission = useMemo(() => filteredDashboardContracts.filter(c => c.type !== ContractType.Telephony).reduce((sum, c) => sum + (c.commission || 0), 0), [filteredDashboardContracts]);
-    const telephonyCommission = useMemo(() => filteredDashboardContracts.filter(c => c.type === ContractType.Telephony).reduce((sum, c) => sum + (c.commission || 0), 0), [filteredDashboardContracts]);
+    
+    // Simplified logic: contracts.type is strictly 'electricity' | 'gas' | 'telephony'
+    const energyCommission = useMemo(() => filteredDashboardContracts.filter(c => {
+        return c.type !== ContractType.Telephony;
+    }).reduce((sum, c) => sum + (c.commission || 0), 0), [filteredDashboardContracts]);
+
+    const telephonyCommission = useMemo(() => filteredDashboardContracts.filter(c => {
+        return c.type === ContractType.Telephony;
+    }).reduce((sum, c) => sum + (c.commission || 0), 0), [filteredDashboardContracts]);
     
     // Calcolo delle provvigioni del mese corrente (indipendentemente dai filtri)
     const currentMonthStats = useMemo(() => {
@@ -435,16 +539,86 @@ const App: React.FC = () => {
         });
 
         const total = currentMonthContracts.reduce((sum, c) => sum + (c.commission || 0), 0);
-        const energy = currentMonthContracts.filter(c => c.type !== ContractType.Telephony).reduce((sum, c) => sum + (c.commission || 0), 0);
-        const telephony = currentMonthContracts.filter(c => c.type === ContractType.Telephony).reduce((sum, c) => sum + (c.commission || 0), 0);
+        
+        const energy = currentMonthContracts.filter(c => {
+             return c.type !== ContractType.Telephony;
+        }).reduce((sum, c) => sum + (c.commission || 0), 0);
+        
+        const telephony = currentMonthContracts.filter(c => {
+             return c.type === ContractType.Telephony;
+        }).reduce((sum, c) => sum + (c.commission || 0), 0);
 
         return { total, energy, telephony };
     }, [contracts]);
 
-    const energyProvidersCount = useMemo(() => new Set(contracts.filter(c => c.type !== ContractType.Telephony).map(c => c.provider)).size, [contracts]);
-    const telephonyProvidersCount = useMemo(() => new Set(contracts.filter(c => c.type === ContractType.Telephony).map(c => c.provider)).size, [contracts]);
+    const energyProvidersCount = useMemo(() => new Set(contracts.filter(c => {
+         return c.type !== ContractType.Telephony;
+    }).map(c => c.provider)).size, [contracts]);
+
+    const telephonyProvidersCount = useMemo(() => new Set(contracts.filter(c => {
+         return c.type === ContractType.Telephony;
+    }).map(c => c.provider)).size, [contracts]);
+
+    // Data for Pie Charts (Independent Filters)
+    const filteredPieChartContracts = useMemo(() => {
+        return contracts.filter(c => {
+            if (!c.startDate) return false;
+            const d = new Date(c.startDate);
+            
+            if (pieChartYear !== 'all' && d.getFullYear().toString() !== pieChartYear) return false;
+            if (pieChartMonth !== 'all' && (d.getMonth() + 1).toString() !== pieChartMonth) return false;
+
+            return true;
+        });
+    }, [contracts, pieChartYear, pieChartMonth]);
 
     
+    // --- Checkup T4 / T8 Logic ---
+    const checkupItems = useMemo<CheckupItem[]>(() => {
+        const items: CheckupItem[] = [];
+        const now = new Date();
+        now.setHours(0,0,0,0);
+
+        contracts.forEach(c => {
+            if (!c.startDate) return;
+            const start = new Date(c.startDate);
+            
+            // Calculate T4 date (Now 6 months)
+            const t4 = new Date(start);
+            t4.setMonth(start.getMonth() + 6);
+            t4.setHours(0,0,0,0);
+
+            // Calculate T8 date (Now 10 months)
+            const t8 = new Date(start);
+            t8.setMonth(start.getMonth() + 10);
+            t8.setHours(0,0,0,0);
+
+            // Logic: Show if current date is within a window around T4 or T8
+            // Modified Window: -10 days to +10 days from target date
+            
+            const checkDate = (target: Date, type: 'T4' | 'T8') => {
+                const diffTime = target.getTime() - now.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                // Show if within +/- 10 days window
+                if (Math.abs(diffDays) <= 10) {
+                    items.push({
+                        contract: c,
+                        type,
+                        targetDate: target,
+                        daysDiff: diffDays
+                    });
+                }
+            };
+
+            checkDate(t4, 'T4');
+            checkDate(t8, 'T8');
+        });
+
+        return items;
+    }, [contracts]);
+
+
     // --- Render Logic with Auth ---
 
     if (isAuthChecking) {
@@ -472,7 +646,8 @@ const App: React.FC = () => {
                      const end = new Date(c.endDate);
                      const now = new Date();
                      const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                     return diff >= 0 && diff <= 30;
+                     // Mostra count per contratti in scadenza (entro 60gg) O scaduti (diff < 0)
+                     return diff <= 60;
                 }).length}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
@@ -488,7 +663,7 @@ const App: React.FC = () => {
                     <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-md text-slate-500 hover:text-slate-700 dark:text-slate-400">
                         <MenuIcon className="h-6 w-6" />
                     </button>
-                    <span className="font-bold text-lg">Mio CRM</span>
+                    <span className="font-bold text-lg">CRM Michele Carchia</span>
                     <button onClick={() => setIsSearchModalOpen(true)} className="p-2 -mr-2 text-slate-500">
                         <SearchIcon className="h-6 w-6" />
                     </button>
@@ -526,7 +701,7 @@ const App: React.FC = () => {
                             <div className="flex flex-wrap gap-4 mb-6 bg-white dark:bg-slate-800 p-4 rounded-lg shadow">
                                 <select value={dashboardYear} onChange={e => setDashboardYear(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600">
                                     <option value="all">Tutti gli anni</option>
-                                    {Array.from(new Set(contracts.map(c => c.startDate ? new Date(c.startDate).getFullYear() : new Date().getFullYear()))).sort().map(y => (
+                                    {availableYears.map(y => (
                                         <option key={y} value={y}>{y}</option>
                                     ))}
                                 </select>
@@ -549,11 +724,17 @@ const App: React.FC = () => {
                                      const now = new Date();
                                      now.setHours(0,0,0,0);
                                      const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                                     return diff >= 0 && diff <= 30;
+                                     return diff <= 60;
                                 })} 
                                 clients={clients}
                                 onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
                                 onDelete={(id) => setItemToDelete({ id, type: 'contract' })}
+                            />
+
+                            <CheckupWidget 
+                                items={checkupItems}
+                                clients={clients}
+                                onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
                             />
 
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -595,11 +776,41 @@ const App: React.FC = () => {
                                 </div>
                             </div>
                             
-                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                <EnergyProviderPieChart contracts={filteredDashboardContracts.filter(c => c.type !== ContractType.Telephony)} />
-                                <TelephonyProviderPieChart contracts={filteredDashboardContracts.filter(c => c.type === ContractType.Telephony)} />
-                                <PaidStatusPieChart contracts={filteredDashboardContracts} />
+                            {/* Distribution Analysis Section */}
+                            <div className="space-y-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-lg shadow">
+                                    <h2 className="text-lg font-bold flex items-center mb-2 sm:mb-0">
+                                        <FilterIcon className="h-5 w-5 mr-2 text-slate-500" />
+                                        Analisi Distribuzione
+                                    </h2>
+                                    <div className="flex gap-2">
+                                        <select value={pieChartYear} onChange={e => setPieChartYear(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                            <option value="all">Tutti gli anni</option>
+                                            {availableYears.map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
+                                        </select>
+                                        <select value={pieChartMonth} onChange={e => setPieChartMonth(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                            <option value="all">Tutti i mesi</option>
+                                            {Array.from({length: 12}, (_, i) => i + 1).map(m => (
+                                                <option key={m} value={m}>{new Date(0, m-1).toLocaleString('it-IT', {month: 'long'})}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    <EnergyProviderPieChart contracts={filteredPieChartContracts.filter(c => {
+                                        return c.type !== ContractType.Telephony;
+                                    })} />
+                                    <TelephonyProviderPieChart contracts={filteredPieChartContracts.filter(c => {
+                                        return c.type === ContractType.Telephony;
+                                    })} />
+                                    <PaidStatusPieChart contracts={filteredPieChartContracts} />
+                                    <ContractExpiryStatusPieChart contracts={filteredPieChartContracts} />
+                                </div>
                             </div>
+
                         </div>
                     )}
 
@@ -666,6 +877,9 @@ const App: React.FC = () => {
                             providers={providers}
                             onAddProvider={handleAddProvider}
                             onDeleteProvider={handleDeleteProvider}
+                            operationTypes={operationTypes}
+                            onAddOperationType={handleAddOperationType}
+                            onDeleteOperationType={handleDeleteOperationType}
                         />
                     )}
                 </main>
@@ -691,6 +905,7 @@ const App: React.FC = () => {
                 onAddProvider={handleAddProvider}
                 isSaving={isSaving}
                 isSuccess={isContractSuccess}
+                operationTypes={operationTypes} // Pass dynamic operation types
             />
 
             <ConfirmationModal
@@ -698,7 +913,7 @@ const App: React.FC = () => {
                 onClose={() => setItemToDelete(null)}
                 onConfirm={confirmDelete}
                 title="Conferma eliminazione"
-                message={`Sei sicuro di voler eliminare questo ${itemToDelete?.type === 'client' ? 'cliente' : itemToDelete?.type === 'contract' ? 'contratto' : 'fornitore'}? Questa azione è irreversibile.`}
+                message={`Sei sicuro di voler eliminare questo elemento? Questa azione è irreversibile.`}
                 isConfirming={isDeleting}
             />
 

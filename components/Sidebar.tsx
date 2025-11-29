@@ -66,7 +66,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, expiringCont
                 <div className="bg-sky-500 p-2 rounded-lg">
                     <UserGroupIcon className="h-6 w-6 text-white" />
                 </div>
-                <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Mio CRM</h1>
+                <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">CRM Michele Carchia</h1>
             </div>
              {/* Close button visible only on mobile */}
              <button onClick={onClose} className="p-1 rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700 lg:hidden" aria-label="Chiudi menu">

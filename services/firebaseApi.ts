@@ -1,3 +1,4 @@
+
 import { 
     collection, 
     getDocs, 
@@ -16,6 +17,10 @@ import type { Client, Contract } from '../types';
 const initialProviders: string[] = [
   'Enel', 'Duferco', 'Edison', 'Lenergia', 'A2A', 
   'TIM', 'Vodafone', 'WindTre', 'Iliad', 'Fastweb'
+];
+
+const initialOperationTypes: string[] = [
+    'Nuova Attivazione', 'Switch', 'Voltura', 'Subentro'
 ];
 
 const clientsCollection = collection(db, "clients");
@@ -118,6 +123,43 @@ export const deleteProvider = async (providerToDelete: string): Promise<string[]
     
     return providers;
 };
+
+// --- Operation Types (Switch, Voltura, Subentro...) ---
+
+const operationTypesDocRef = doc(db, 'config', 'operation_types');
+
+export const getAllOperationTypes = async (): Promise<string[]> => {
+    const docSnap = await getDoc(operationTypesDocRef);
+    if (docSnap.exists() && docSnap.data().names) {
+        return docSnap.data().names;
+    } else {
+        await setDoc(operationTypesDocRef, { names: initialOperationTypes });
+        return initialOperationTypes;
+    }
+};
+
+export const addOperationType = async (newType: string): Promise<string[]> => {
+    const types = await getAllOperationTypes();
+    const trimmedType = newType.trim();
+    if (trimmedType && !types.some(t => t.toLowerCase() === trimmedType.toLowerCase())) {
+        const updatedTypes = [...types, trimmedType].sort();
+        await setDoc(operationTypesDocRef, { names: updatedTypes });
+        return updatedTypes;
+    }
+    return types;
+};
+
+export const deleteOperationType = async (typeToDelete: string): Promise<string[]> => {
+    const types = await getAllOperationTypes();
+    const updatedTypes = types.filter(t => t !== typeToDelete);
+    
+    if (types.length !== updatedTypes.length) {
+        await setDoc(operationTypesDocRef, { names: updatedTypes });
+        return updatedTypes;
+    }
+    return types;
+};
+
 
 // --- Credentials ---
 
