@@ -1,7 +1,7 @@
 
 import React from 'react';
 import type { Client, Contract } from '../types';
-import { PencilIcon, MailIcon, ChatIcon, WhatsAppIcon, DocumentSearchIcon, CheckCircleIcon } from './Icons';
+import { PencilIcon, MailIcon, ChatIcon, WhatsAppIcon, DocumentSearchIcon, CheckCircleIcon, TrashIcon } from './Icons';
 
 export interface CheckupItem {
   contract: Contract;
@@ -14,9 +14,10 @@ interface CheckupWidgetProps {
   items: CheckupItem[];
   clients: Client[];
   onEdit: (contract: Contract) => void;
+  onDismiss: (item: CheckupItem) => void;
 }
 
-const CheckupWidget: React.FC<CheckupWidgetProps> = ({ items, clients, onEdit }) => {
+const CheckupWidget: React.FC<CheckupWidgetProps> = ({ items, clients, onEdit, onDismiss }) => {
   // Se non ci sono checkup, mostriamo il widget con un messaggio di "Nessuna attività" per tenerlo visibile
   if (items.length === 0) {
     return (
@@ -165,6 +166,13 @@ Michele Carchia`;
                       title="Vedi Contratto"
                     >
                       <PencilIcon className="h-4 w-4" />
+                    </button>
+                    <button 
+                      onClick={() => onDismiss(item)} 
+                      className="p-1.5 text-red-500 rounded-full hover:bg-red-100 transition-colors"
+                      title="Elimina notifica"
+                    >
+                      <TrashIcon className="h-4 w-4" />
                     </button>
                   </div>
                 </li>

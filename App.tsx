@@ -244,6 +244,29 @@ const App: React.FC = () => {
     const [pieChartYear, setPieChartYear] = useState(new Date().getFullYear().toString());
     const [pieChartMonth, setPieChartMonth] = useState('all');
 
+    // State for dismissed checkup items (T4/T8)
+    const [dismissedCheckups, setDismissedCheckups] = useState<string[]>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('dismissedCheckups');
+            return saved ? JSON.parse(saved) : [];
+        }
+        return [];
+    });
+
+    // Save dismissed checkups to localStorage whenever changed
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('dismissedCheckups', JSON.stringify(dismissedCheckups));
+        }
+    }, [dismissedCheckups]);
+
+    const handleDismissCheckup = (item: CheckupItem) => {
+        // Unique ID format: ContractID_Type (e.g., abc123_T4)
+        const checkupId = `${item.contract.id}_${item.type}`;
+        setDismissedCheckups(prev => [...prev, checkupId]);
+        setToast({ message: "Notifica rimossa", type: 'success' });
+    };
+
     // Handle screen resize to auto-adjust sidebar if needed (optional UX enhancement)
     useEffect(() => {
         const handleResize = () => {
@@ -615,8 +638,12 @@ const App: React.FC = () => {
             checkDate(t8, 'T8');
         });
 
-        return items;
-    }, [contracts]);
+        // Filter out items that have been dismissed
+        return items.filter(item => {
+            const checkupId = `${item.contract.id}_${item.type}`;
+            return !dismissedCheckups.includes(checkupId);
+        });
+    }, [contracts, dismissedCheckups]);
 
 
     // --- Render Logic with Auth ---
@@ -717,6 +744,13 @@ const App: React.FC = () => {
                                 </select>
                             </div>
 
+                            <CheckupWidget 
+                                items={checkupItems}
+                                clients={clients}
+                                onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
+                                onDismiss={handleDismissCheckup}
+                            />
+
                             <ExpiringContractsWidget 
                                 contracts={contracts.filter(c => {
                                      if (!c.endDate) return false;
@@ -729,12 +763,6 @@ const App: React.FC = () => {
                                 clients={clients}
                                 onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
                                 onDelete={(id) => setItemToDelete({ id, type: 'contract' })}
-                            />
-
-                            <CheckupWidget 
-                                items={checkupItems}
-                                clients={clients}
-                                onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
                             />
 
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
