@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import type { Contract } from '../types';
 import { CheckCircleIcon, ExclamationIcon } from './Icons';
@@ -95,8 +96,8 @@ const PaidStatusPieChart: React.FC<PaidStatusPieChartProps> = ({ contracts }) =>
         <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Stato Pagamento Contratti</h2>
       </div>
       {chartData.total > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
-          <div className="relative w-full aspect-square max-w-[200px] mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+          <div className="relative w-full aspect-square max-w-[160px] mx-auto">
             <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
               {chartData.segments.map((segment) => (
                 <path key={segment.name} d={segment.path} fill={segment.color}>
@@ -105,7 +106,7 @@ const PaidStatusPieChart: React.FC<PaidStatusPieChartProps> = ({ contracts }) =>
               ))}
             </svg>
           </div>
-          <div className="text-sm">
+          <div className="text-xs">
             <ul className="space-y-2">
               {chartData.segments.map(segment => (
                 <li key={segment.name} className="flex items-center justify-between">
@@ -113,9 +114,9 @@ const PaidStatusPieChart: React.FC<PaidStatusPieChartProps> = ({ contracts }) =>
                     <span className="h-3 w-3 rounded-full mr-3" style={{ backgroundColor: segment.color }} aria-hidden="true"></span>
                     <span className="font-medium text-slate-700 dark:text-slate-200">{segment.name}</span>
                   </div>
-                  <div className="text-slate-500 dark:text-slate-400">
+                  <div className="text-slate-500 dark:text-slate-400 whitespace-nowrap ml-2">
                     <span className="font-semibold text-slate-800 dark:text-slate-100">{segment.count}</span>
-                    <span className="ml-2 text-xs">({segment.percentage}%)</span>
+                    <span className="ml-1 text-[10px]">({segment.percentage}%)</span>
                   </div>
                 </li>
               ))}

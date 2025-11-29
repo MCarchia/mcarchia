@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import type { Contract } from '../types';
 
@@ -119,8 +120,8 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
         <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{title}</h2>
       </div>
       {chartData.providers.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
-            <div className="relative w-full aspect-square max-w-[200px] mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+            <div className="relative w-full aspect-square max-w-[160px] mx-auto">
                  <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
                     {chartData.providers.map((provider) => (
                         <path
@@ -134,17 +135,17 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
                 </svg>
             </div>
           
-            <div className="text-sm">
+            <div className="text-xs">
                 <ul className="space-y-2">
                     {chartData.providers.map(provider => (
                         <li key={provider.name} className="flex items-center justify-between">
                             <div className="flex items-center">
                                 <span className="h-3 w-3 rounded-full mr-3" style={{ backgroundColor: provider.color }} aria-hidden="true"></span>
-                                <span className="font-medium text-slate-700 dark:text-slate-200">{provider.name}</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-200 break-words">{provider.name}</span>
                             </div>
-                            <div className="text-slate-500 dark:text-slate-400">
+                            <div className="text-slate-500 dark:text-slate-400 whitespace-nowrap ml-2">
                                 <span className="font-semibold text-slate-800 dark:text-slate-100">{provider.count}</span>
-                                <span className="ml-2 text-xs">({provider.percentage}%)</span>
+                                <span className="ml-1 text-[10px]">({provider.percentage}%)</span>
                             </div>
                         </li>
                     ))}
