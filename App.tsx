@@ -602,18 +602,29 @@ const App: React.FC = () => {
         const now = new Date();
         now.setHours(0,0,0,0);
 
+        // Funzione helper per aggiungere mesi in modo sicuro (gestendo overflow)
+        const addMonths = (inputDate: Date, months: number) => {
+            const date = new Date(inputDate);
+            date.setMonth(date.getMonth() + months);
+            // Se il giorno è cambiato, significa che siamo in un mese più corto (es. 31 Gen -> 28 Feb)
+            // In tal caso, settiamo all'ultimo giorno del mese precedente (che è quello corretto)
+            if (date.getDate() !== inputDate.getDate()) {
+                date.setDate(0);
+            }
+            return date;
+        };
+
         contracts.forEach(c => {
             if (!c.startDate) return;
             const start = new Date(c.startDate);
+            start.setHours(0,0,0,0);
             
-            // Calculate T4 date (Now 6 months)
-            const t4 = new Date(start);
-            t4.setMonth(start.getMonth() + 6);
+            // Calculate T4 date (Start + 6 months)
+            const t4 = addMonths(start, 6);
             t4.setHours(0,0,0,0);
 
-            // Calculate T8 date (Now 10 months)
-            const t8 = new Date(start);
-            t8.setMonth(start.getMonth() + 10);
+            // Calculate T8 date (Start + 10 months)
+            const t8 = addMonths(start, 10);
             t8.setHours(0,0,0,0);
 
             // Logic: Show if current date is within a window around T4 or T8
