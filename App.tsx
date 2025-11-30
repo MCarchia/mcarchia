@@ -602,16 +602,18 @@ const App: React.FC = () => {
         const now = new Date();
         now.setHours(0,0,0,0);
 
-        // Funzione helper per aggiungere mesi in modo sicuro (gestendo overflow)
+        // Helper function: Add months safely handling end of month days
         const addMonths = (inputDate: Date, months: number) => {
-            const date = new Date(inputDate);
-            date.setMonth(date.getMonth() + months);
-            // Se il giorno è cambiato, significa che siamo in un mese più corto (es. 31 Gen -> 28 Feb)
-            // In tal caso, settiamo all'ultimo giorno del mese precedente (che è quello corretto)
-            if (date.getDate() !== inputDate.getDate()) {
-                date.setDate(0);
-            }
-            return date;
+             const date = new Date(inputDate);
+             const originalDay = date.getDate();
+             date.setMonth(date.getMonth() + months);
+             
+             // If the day changed, it means the target month has fewer days (e.g., Jan 31 + 1 mo -> Feb 28/29)
+             // We want to stick to the last day of that month.
+             if (date.getDate() !== originalDay) {
+                 date.setDate(0); 
+             }
+             return date;
         };
 
         contracts.forEach(c => {
@@ -656,6 +658,12 @@ const App: React.FC = () => {
         });
     }, [contracts, dismissedCheckups]);
 
+    const handleProviderClick = (provider: string) => {
+        setContractProviderFilter(provider);
+        setView('contracts');
+        // Optional: show toast to confirm filter action
+        setToast({ message: `Filtro applicato: ${provider}`, type: 'success' });
+    };
 
     // --- Render Logic with Auth ---
 
@@ -839,12 +847,14 @@ const App: React.FC = () => {
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                                    <EnergyProviderPieChart contracts={filteredPieChartContracts.filter(c => {
-                                        return c.type !== ContractType.Telephony;
-                                    })} />
-                                    <TelephonyProviderPieChart contracts={filteredPieChartContracts.filter(c => {
-                                        return c.type === ContractType.Telephony;
-                                    })} />
+                                    <EnergyProviderPieChart 
+                                        contracts={filteredPieChartContracts.filter(c => c.type !== ContractType.Telephony)} 
+                                        onProviderClick={handleProviderClick}
+                                    />
+                                    <TelephonyProviderPieChart 
+                                        contracts={filteredPieChartContracts.filter(c => c.type === ContractType.Telephony)} 
+                                        onProviderClick={handleProviderClick}
+                                    />
                                     <PaidStatusPieChart contracts={filteredPieChartContracts} />
                                     <ContractExpiryStatusPieChart contracts={filteredPieChartContracts} />
                                 </div>
