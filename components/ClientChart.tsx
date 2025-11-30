@@ -1,4 +1,5 @@
 
+
 import React, { useMemo } from 'react';
 import type { Client } from '../types';
 
@@ -43,36 +44,29 @@ const ClientChart: React.FC<ClientChartProps> = ({ clients, selectedYear }) => {
   const totalClientsForYear = useMemo(() => chartData.reduce((sum, item) => sum + item.count, 0), [chartData]);
 
   return (
-    <div className="pb-12">
+    <>
       <div className="text-sm text-slate-500 dark:text-slate-400 mb-6">
         Totale nuovi clienti per l'anno {selectedYear}: <span className="font-bold text-slate-700 dark:text-slate-200">{totalClientsForYear}</span>
       </div>
-      <div className="flex justify-around items-end h-64 space-x-2 text-center border-b border-slate-200 dark:border-slate-700" aria-label={`Grafico a barre dei nuovi clienti per l'anno ${selectedYear}`}>
+      <div className="flex justify-around items-end h-56 space-x-2 text-center" aria-label={`Grafico a barre dei nuovi clienti per l'anno ${selectedYear}`}>
         {chartData.map(({ month, count }) => (
-          <div key={`${month}-${selectedYear}`} className="flex flex-col items-center justify-end w-full h-full group relative">
+          <div key={`${month}-${selectedYear}`} className="flex flex-col items-center justify-end w-full h-full group">
+             <div className="text-sm font-bold text-slate-700 dark:text-slate-100 mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300" aria-hidden="true">
+              {count}
+            </div>
             <div
-              className="w-3/4 bg-sky-300 hover:bg-sky-500 dark:bg-sky-700 dark:hover:bg-sky-500 rounded-t-lg transition-all duration-300 ease-out cursor-pointer relative"
+              className="w-3/4 bg-sky-300 hover:bg-sky-500 dark:bg-sky-700 dark:hover:bg-sky-500 rounded-t-lg transition-all duration-500 ease-out cursor-pointer"
               style={{ height: `${(count / maxCount) * 100}%` }}
               role="img"
               aria-label={`Barra per ${month}: ${count} clienti`}
             >
-               {/* Tooltip */}
-               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-xs font-semibold rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                  {count} Clienti
-                  {/* Arrow */}
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-               </div>
+               <div className="sr-only">{`${month}: ${count} clienti`}</div>
             </div>
-            {/* Label Centrata e Distanziata */}
-            <div className="absolute top-full left-0 w-full flex justify-center mt-4">
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase [writing-mode:vertical-rl] [transform:rotate(180deg)]">
-                    {month}
-                </span>
-            </div>
+            <div className="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase [writing-mode:vertical-rl] [transform:rotate(180deg)]">{month}</div>
           </div>
         ))}
       </div>
-    </div>
+    </>
   );
 };
 

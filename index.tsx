@@ -17,15 +17,15 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     error: null
   };
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  render() {
+  public render() {
     if (this.state.hasError) {
       return (
         <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'sans-serif' }}>
@@ -44,13 +44,13 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
 
-    return this.props.children;
+    return (this as any).props.children;
   }
 }
 
-const rootElement = document.getElementById('root');
-if (!rootElement) throw new Error('Failed to find the root element');
-const root = ReactDOM.createRoot(rootElement);
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement
+);
 
 root.render(
   <React.StrictMode>

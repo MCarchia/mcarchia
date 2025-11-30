@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { ChartBarIcon, UserGroupIcon, DocumentDuplicateIcon, XIcon, SunIcon, MoonIcon, LogoutIcon, CogIcon, BriefcaseIcon, ClipboardListIcon } from './Icons';
+import { ChartBarIcon, UserGroupIcon, DocumentDuplicateIcon, XIcon, SunIcon, MoonIcon, LogoutIcon, CogIcon } from './Icons';
 
-type View = 'dashboard' | 'contracts' | 'clients' | 'appointments' | 'office-tasks' | 'settings';
+type View = 'dashboard' | 'contracts' | 'clients' | 'settings';
 
 interface SidebarProps {
   currentView: View;
@@ -82,20 +82,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, expiringCont
                 onClick={onNavigate}
                 icon={<ChartBarIcon className="h-5 w-5" />}
                 badgeCount={expiringContractsCount}
-            />
-            <NavButton
-                label="Appuntamenti"
-                view="appointments"
-                currentView={currentView}
-                onClick={onNavigate}
-                icon={<BriefcaseIcon className="h-5 w-5" />}
-            />
-            <NavButton
-                label="Attività Ufficio"
-                view="office-tasks"
-                currentView={currentView}
-                onClick={onNavigate}
-                icon={<ClipboardListIcon className="h-5 w-5" />}
             />
             <NavButton
                 label="Contratti"
