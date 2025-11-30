@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import type { Contract } from '../types';
 
@@ -207,9 +208,9 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
                 )}
             </div>
           
-            {/* Legend Grid */}
+            {/* Legend Grid - OPTIMIZED FOR SMALL TEXT AND NO TRUNCATION */}
             <div className="w-full">
-                <ul className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
+                <ul className="grid grid-cols-2 gap-x-1 gap-y-1 text-[11px]">
                     {chartData.providers.map(provider => (
                         <li 
                           key={provider.name} 
@@ -217,8 +218,8 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
                           onClick={() => onSliceClick && onSliceClick(provider.name)}
                         >
                             <div className="flex items-center overflow-hidden">
-                                <span className="h-2.5 w-2.5 rounded-full mr-2 flex-shrink-0" style={{ backgroundColor: provider.color }} aria-hidden="true"></span>
-                                <span className="font-medium text-slate-700 dark:text-slate-200 truncate" title={provider.name}>{provider.name}</span>
+                                <span className="h-2.5 w-2.5 rounded-full mr-1.5 flex-shrink-0" style={{ backgroundColor: provider.color }} aria-hidden="true"></span>
+                                <span className="font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap" title={provider.name}>{provider.name}</span>
                             </div>
                             <div className="text-slate-500 dark:text-slate-400 whitespace-nowrap ml-1 flex-shrink-0">
                                 <span className="font-semibold text-slate-800 dark:text-slate-100">{provider.count}</span>
