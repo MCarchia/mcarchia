@@ -1,14 +1,7 @@
 
 import React from 'react';
-import type { Client, Contract } from '../types';
+import type { Client, Contract, CheckupItem } from '../types';
 import { PencilIcon, MailIcon, ChatIcon, WhatsAppIcon, DocumentSearchIcon, CheckCircleIcon, TrashIcon } from './Icons';
-
-export interface CheckupItem {
-  contract: Contract;
-  type: 'T4' | 'T8';
-  targetDate: Date;
-  daysDiff: number;
-}
 
 interface CheckupWidgetProps {
   items: CheckupItem[];

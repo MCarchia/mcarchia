@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import type { Client, Iban } from '../types';
-import { XIcon, PlusIcon, TrashIcon, CheckCircleSolidIcon } from './Icons';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import type { Client, Iban, ClientDocument } from '../types';
+import { XIcon, PlusIcon, TrashIcon, CheckCircleSolidIcon, PaperClipIcon, CloudUploadIcon, DocumentTextIcon, LinkIcon } from './Icons';
 import { Spinner } from './Spinner';
+import * as api from '../services/api';
 
 // --- VALIDATION HELPERS ---
 
@@ -82,10 +83,18 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
     legalAddress: { street: '', zipCode: '', city: '', state: '', country: 'Italia' },
     residentialAddress: { street: '', zipCode: '', city: '', state: '', country: 'Italia' },
     notes: '',
+    documents: [] as ClientDocument[],
   });
 
   const [formData, setFormData] = useState(getInitialFormData());
   const [errors, setErrors] = useState<{ codiceFiscale?: string; pIva?: string; ibans?: (string | undefined)[] }>({});
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // State for External Link Input
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [newLinkName, setNewLinkName] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -110,11 +119,15 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
           legalAddress: { ...getInitialFormData().legalAddress, ...(client.legalAddress || {}) },
           residentialAddress: { ...getInitialFormData().residentialAddress, ...(client.residentialAddress || {}) },
           notes: client.notes || '',
+          documents: client.documents || [],
         });
       } else {
         setFormData(getInitialFormData());
       }
       setErrors({}); // Resetta gli errori all'apertura del modale
+      setShowLinkInput(false);
+      setNewLinkUrl('');
+      setNewLinkName('');
     }
   }, [client, isOpen]);
 
@@ -163,10 +176,80 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+
+      setIsUploading(true);
+      try {
+          const uploadedDocs: ClientDocument[] = [];
+          for (let i = 0; i < files.length; i++) {
+              const file = files[i];
+              const uploadedDoc = await api.uploadClientDocument(file);
+              uploadedDocs.push(uploadedDoc);
+          }
+          setFormData(prev => ({
+              ...prev,
+              documents: [...prev.documents, ...uploadedDocs]
+          }));
+      } catch (error) {
+          console.error("Upload error:", error);
+          alert("Errore durante il caricamento del file. Controlla la connessione e riprova.");
+      } finally {
+          setIsUploading(false);
+          // Reset input value so same file can be selected again
+          if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+  };
+
+  const handleAddLink = () => {
+      if (!newLinkUrl) return;
+      let url = newLinkUrl;
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          url = 'https://' + url;
+      }
+      
+      const newDoc: ClientDocument = {
+          name: newLinkName || 'Link Esterno',
+          url: url,
+          type: 'link', // Special type for links
+          uploadedAt: new Date().toISOString(),
+          path: '' // No storage path
+      };
+
+      setFormData(prev => ({
+          ...prev,
+          documents: [...prev.documents, newDoc]
+      }));
+      
+      setShowLinkInput(false);
+      setNewLinkUrl('');
+      setNewLinkName('');
+  };
+
+  const handleDeleteDocument = async (docIndex: number) => {
+      const docToDelete = formData.documents[docIndex];
+      // Optimistic update locally
+      setFormData(prev => ({
+          ...prev,
+          documents: prev.documents.filter((_, i) => i !== docIndex)
+      }));
+
+      // In background, try to delete from storage IF it has a path (links don't)
+      try {
+          if (docToDelete.path) {
+              await api.deleteClientDocument(docToDelete.path);
+          }
+      } catch (e) {
+          console.error("Error deleting file from storage", e);
+          // Not strictly necessary to revert UI state as the file link is broken anyway
+      }
+  };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSaving || isSuccess) return;
+    if (isSaving || isSuccess || isUploading) return;
     
     const validationErrors: { codiceFiscale?: string; pIva?: string; ibans?: (string | undefined)[] } = {};
 
@@ -412,12 +495,129 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClos
               <label htmlFor="notes" className="block text-sm font-medium text-slate-700">Note Cliente</label>
               <textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} rows={3} disabled={isSaving || isSuccess} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"></textarea>
             </div>
+
+            {/* Documents Section */}
+            <fieldset disabled={isSaving || isSuccess || isUploading}>
+                <legend className="text-lg font-semibold text-slate-800 mb-3 border-b pb-2 flex items-center">
+                    <PaperClipIcon className="h-5 w-5 mr-2" />
+                    Documenti e Allegati
+                </legend>
+                
+                <div className="flex gap-4 mb-4">
+                    {/* File Upload Button */}
+                    <label className={`flex-1 flex flex-col items-center justify-center h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:hover:border-slate-500 dark:hover:bg-slate-600 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            {isUploading ? (
+                                <Spinner size="md" />
+                            ) : (
+                                <>
+                                    <CloudUploadIcon className="w-8 h-8 mb-3 text-slate-400" />
+                                    <p className="mb-2 text-sm text-slate-500 dark:text-slate-400 text-center"><span className="font-semibold">Carica File</span></p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 text-center">PDF, Immagini (MAX. 10MB)</p>
+                                </>
+                            )}
+                        </div>
+                        <input 
+                            ref={fileInputRef}
+                            id="dropzone-file" 
+                            type="file" 
+                            className="hidden" 
+                            multiple 
+                            onChange={handleFileUpload} 
+                            disabled={isUploading}
+                        />
+                    </label>
+
+                    {/* External Link Button */}
+                    <div 
+                        onClick={() => setShowLinkInput(true)}
+                        className="flex-1 flex flex-col items-center justify-center h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:hover:border-slate-500 dark:hover:bg-slate-600 transition-colors"
+                    >
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <LinkIcon className="w-8 h-8 mb-3 text-slate-400" />
+                            <p className="mb-2 text-sm text-slate-500 dark:text-slate-400 text-center"><span className="font-semibold">Collega Link Esterno</span></p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 text-center">TeraBox, Mega, Google Drive, ecc.</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Link Input Form */}
+                {showLinkInput && (
+                    <div className="mb-4 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600 animate-fade-in-down">
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">URL Link (Es. TeraBox, Mega, Drive)</label>
+                                <input 
+                                    type="url" 
+                                    value={newLinkUrl}
+                                    onChange={(e) => setNewLinkUrl(e.target.value)}
+                                    placeholder="https://..."
+                                    className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nome del file/cartella</label>
+                                <input 
+                                    type="text" 
+                                    value={newLinkName}
+                                    onChange={(e) => setNewLinkName(e.target.value)}
+                                    placeholder="Es. Documenti Identità"
+                                    className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                                />
+                            </div>
+                            <div className="flex justify-end space-x-2">
+                                <button type="button" onClick={() => setShowLinkInput(false)} className="px-3 py-1 text-sm text-slate-600 hover:text-slate-800">Annulla</button>
+                                <button type="button" onClick={handleAddLink} disabled={!newLinkUrl} className="px-3 py-1 text-sm bg-sky-500 text-white rounded-md hover:bg-sky-600 disabled:opacity-50">Aggiungi Link</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {formData.documents.length > 0 && (
+                    <div className="space-y-2">
+                        {formData.documents.map((doc, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-md shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                                <div className="flex items-center overflow-hidden">
+                                    {doc.type === 'link' ? (
+                                        <LinkIcon className="h-5 w-5 text-indigo-400 mr-3 flex-shrink-0" />
+                                    ) : (
+                                        <DocumentTextIcon className="h-5 w-5 text-slate-400 mr-3 flex-shrink-0" />
+                                    )}
+                                    <div className="truncate">
+                                        <a 
+                                            href={doc.url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            className="text-sm font-medium text-sky-600 hover:underline dark:text-sky-400 truncate block"
+                                            title={doc.name}
+                                        >
+                                            {doc.name}
+                                        </a>
+                                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                                            {new Date(doc.uploadedAt).toLocaleDateString()} {doc.type === 'link' ? '(Link Esterno)' : ''}
+                                        </span>
+                                    </div>
+                                </div>
+                                <button 
+                                    type="button" 
+                                    onClick={() => handleDeleteDocument(index)} 
+                                    className="p-2 text-red-500 hover:bg-red-100 rounded-full transition-colors ml-2"
+                                    title="Elimina documento"
+                                >
+                                    <TrashIcon className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </fieldset>
+
           </div>
           <div className="flex justify-end pt-6 mt-6 border-t border-slate-200 space-x-3">
-            <button type="button" onClick={onClose} disabled={isSaving || isSuccess} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 transition disabled:opacity-50 disabled:cursor-not-allowed">Annulla</button>
+            <button type="button" onClick={onClose} disabled={isSaving || isSuccess || isUploading} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 transition disabled:opacity-50 disabled:cursor-not-allowed">Annulla</button>
             <button 
                 type="submit" 
-                disabled={isSaving || isSuccess}
+                disabled={isSaving || isSuccess || isUploading}
                 className={`inline-flex items-center justify-center px-6 py-2 rounded-md shadow transition disabled:cursor-not-allowed ${
                     isSuccess 
                         ? 'bg-green-500 text-white hover:bg-green-600' 

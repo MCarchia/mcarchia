@@ -1,9 +1,18 @@
 
-import type { Client, Contract, Appointment, OfficeTask } from '../types';
+import type { Client, Contract, Appointment, OfficeTask, ClientDocument } from '../types';
 import * as firebaseApi from './firebaseApi';
 
 // All functions now call firebaseApi, which interacts with Firestore.
 // The async nature is now real, as we are making network requests.
+
+// --- Storage API ---
+export const uploadClientDocument = async (file: File): Promise<ClientDocument> => {
+    return firebaseApi.uploadClientDocument(file);
+};
+
+export const deleteClientDocument = async (path: string): Promise<void> => {
+    return firebaseApi.deleteClientDocument(path);
+};
 
 // --- Clients API ---
 export const getAllClients = async (): Promise<Client[]> => {

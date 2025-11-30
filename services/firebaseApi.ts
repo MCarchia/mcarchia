@@ -12,8 +12,9 @@ import {
     setDoc,
     orderBy
 } from "firebase/firestore";
-import { db } from './firebase';
-import type { Client, Contract, Appointment, OfficeTask } from '../types';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { db, storage } from './firebase';
+import type { Client, Contract, Appointment, OfficeTask, ClientDocument } from '../types';
 
 const initialProviders: string[] = [
   'Enel', 'Duferco', 'Edison', 'Lenergia', 'A2A', 
@@ -28,10 +29,40 @@ const initialAppointmentStatuses: string[] = [
     'Da Fare', 'Completato', 'Annullato'
 ];
 
+// Ensure DB is initialized before creating collection references
+// If DB failed to load, these will throw, caught by ErrorBoundary in index.tsx
 const clientsCollection = collection(db, "clients");
 const contractsCollection = collection(db, "contracts");
 const appointmentsCollection = collection(db, "appointments");
 const officeTasksCollection = collection(db, "office_tasks");
+
+// --- Storage Functions ---
+
+export const uploadClientDocument = async (file: File): Promise<ClientDocument> => {
+    if (!storage) {
+        throw new Error("Il servizio di archiviazione (Storage) non è disponibile o non è configurato.");
+    }
+    // Crea un path unico: client-documents/TIMESTAMP_FILENAME
+    const path = `client-documents/${Date.now()}_${file.name}`;
+    const storageRef = ref(storage, path);
+    
+    await uploadBytes(storageRef, file);
+    const url = await getDownloadURL(storageRef);
+    
+    return {
+        name: file.name,
+        url: url,
+        type: file.type,
+        uploadedAt: new Date().toISOString(),
+        path: path
+    };
+};
+
+export const deleteClientDocument = async (path: string): Promise<void> => {
+    if (!storage) return; // Fail silently if storage is not active
+    const storageRef = ref(storage, path);
+    await deleteObject(storageRef);
+};
 
 // --- Clients ---
 
@@ -63,6 +94,9 @@ export const deleteClient = async (clientId: string): Promise<void> => {
     
     const deletePromises = contractsSnapshot.docs.map(doc => deleteDoc(doc.ref));
     await Promise.all(deletePromises);
+    
+    // NOTA: I file su Storage non vengono eliminati automaticamente qui per sicurezza,
+    // ma idealmente si dovrebbero iterare i documenti del client ed eliminarli.
     
     // Poi elimina il cliente
     await deleteDoc(doc(db, "clients", clientId));

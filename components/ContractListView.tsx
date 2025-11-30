@@ -2,53 +2,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { Client, Contract, Address } from '../types';
 import { ContractType } from '../types';
-import { PencilIcon, TrashIcon, PlusIcon, LightningBoltIcon, DeviceMobileIcon, ChevronUpIcon, ChevronDownIcon, FireIcon, DocumentDuplicateIcon, ExclamationIcon, SearchIcon, FilterIcon, DocumentDownloadIcon, CheckCircleIcon, CheckCircleSolidIcon } from './Icons';
-
-// --- CSV/Excel Export Utilities ---
-const escapeCell = (cell: any, delimiter: string): string => {
-    if (cell == null) {
-        return '';
-    }
-    const str = String(cell);
-    if (str.includes(delimiter) || str.includes('"') || str.includes('\n') || str.includes('\r')) {
-        return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-};
-
-const convertToDelimitedString = (data: any[], headers: Record<string, string>, delimiter: string): string => {
-    const headerValues = Object.values(headers);
-    const headerKeys = Object.keys(headers);
-
-    const rows = data.map(item => {
-        return headerKeys.map(key => {
-            const keys = key.split('.');
-            let value = item;
-            for (const k of keys) {
-                if (value == null) {
-                    value = undefined;
-                    break;
-                }
-                value = value[k];
-            }
-            return escapeCell(value, delimiter);
-        }).join(delimiter);
-    });
-    return [headerValues.join(delimiter), ...rows].join('\r\n');
-};
-
-const downloadFile = (content: string, filename: string) => {
-    const blob = new Blob([`\uFEFF${content}`], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-};
+import { PencilIcon, TrashIcon, PlusIcon, LightningBoltIcon, DeviceMobileIcon, ChevronUpIcon, ChevronDownIcon, FireIcon, ExclamationIcon, FilterIcon, DocumentDownloadIcon, CheckCircleIcon, CheckCircleSolidIcon } from './Icons';
+import { convertToDelimitedString, downloadFile } from '../utils/dataExport';
 
 // --- Export Button Component with Dropdown ---
 const ExportButton: React.FC<{ onExport: (format: 'csv' | 'excel') => void, title: string }> = ({ onExport, title }) => {

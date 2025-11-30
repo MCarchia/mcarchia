@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import * as api from './services/api';
-import { Client, Contract, ContractType, Appointment, OfficeTask } from './types';
+import { Client, Contract, ContractType, Appointment, OfficeTask, CheckupItem } from './types';
 import Sidebar from './components/Sidebar';
 import { ClientListView } from './components/ClientListView';
 import { ContractListView } from './components/ContractListView';
@@ -12,7 +12,7 @@ import { AppointmentFormModal } from './components/AppointmentFormModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import SearchModal from './components/SearchModal';
 import GlobalSearchBar from './components/GlobalSearchBar';
-import { MenuIcon, SearchIcon, EyeIcon, EyeOffIcon, FilterIcon, TrashIcon } from './components/Icons';
+import { MenuIcon, SearchIcon, EyeIcon, EyeOffIcon, FilterIcon, TrashIcon, AdjustmentsIcon } from './components/Icons';
 import Login from './components/Login';
 
 // Dashboard widgets
@@ -28,7 +28,7 @@ import EnergyProviderPieChart from './components/EnergyProviderPieChart';
 import TelephonyProviderPieChart from './components/TelephonyProviderPieChart';
 import ContractExpiryStatusPieChart from './components/ContractExpiryStatusPieChart';
 import ExpiringContractsWidget from './components/ExpiringContractsWidget';
-import CheckupWidget, { CheckupItem } from './components/CheckupWidget';
+import CheckupWidget from './components/CheckupWidget';
 import AppointmentsWidget from './components/AppointmentsWidget';
 import OfficeTaskWidget from './components/OfficeTaskWidget';
 import { Spinner } from './components/Spinner';
@@ -112,7 +112,7 @@ const SettingsView = ({
     }
 
     return (
-        <div className="p-6 bg-white dark:bg-slate-800 rounded-lg shadow space-y-8">
+        <div className="p-6 bg-white dark:bg-slate-800 rounded-lg shadow space-y-8 animate-fade-in">
             <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-100">Impostazioni</h2>
             
             {/* Credenziali */}
@@ -152,14 +152,14 @@ const SettingsView = ({
             {/* Gestione Stati Appuntamento */}
              <div>
                     <h3 className="text-lg font-semibold mb-2 text-slate-700 dark:text-slate-200">Stati Appuntamenti</h3>
-                    <p className="text-sm text-slate-500 mb-4">Definisci gli stati possibili per gli appuntamenti (es. Da Fare, Completato, Annullato).</p>
+                    <p className="text-sm text-slate-500 mb-4">Gestisci gli stati personalizzati per gli appuntamenti (es. Da Fare, Completato).</p>
                     
                     <form onSubmit={handleAddAppStatus} className="flex gap-2 mb-4 max-w-md">
                         <input 
                         type="text" 
                         value={newAppointmentStatus} 
                         onChange={e => setNewAppointmentStatus(e.target.value)} 
-                        placeholder="Es. Da Fare, Rimandato..." 
+                        placeholder="Nuovo stato (es. Rinviato)" 
                         className="flex-1 border p-2 rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" 
                         required
                         />
@@ -304,11 +304,54 @@ const App: React.FC = () => {
     const [pieChartYear, setPieChartYear] = useState(new Date().getFullYear().toString());
     const [pieChartMonth, setPieChartMonth] = useState('all');
 
+    // Dashboard Customization State
+    const [visibleWidgets, setVisibleWidgets] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const saved = localStorage.getItem('dashboardConfig');
+                if (saved) {
+                    return JSON.parse(saved);
+                }
+            } catch (e) {
+                console.error("Error parsing dashboardConfig from localStorage", e);
+            }
+        }
+        return {
+            operational: true,
+            checkups: true,
+            expiring: true,
+            stats: true,
+            charts: true,
+            distribution: true
+        };
+    });
+    
+    const [isDashboardConfigOpen, setIsDashboardConfigOpen] = useState(false);
+
+    // Save dashboard config
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('dashboardConfig', JSON.stringify(visibleWidgets));
+        }
+    }, [visibleWidgets]);
+
+    const toggleWidgetVisibility = (key: keyof typeof visibleWidgets) => {
+        setVisibleWidgets((prev: any) => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+    };
+
     // State for dismissed checkup items (T4/T8)
     const [dismissedCheckups, setDismissedCheckups] = useState<string[]>(() => {
         if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('dismissedCheckups');
-            return saved ? JSON.parse(saved) : [];
+            try {
+                const saved = localStorage.getItem('dismissedCheckups');
+                return saved ? JSON.parse(saved) : [];
+            } catch (e) {
+                console.error("Error parsing dismissedCheckups", e);
+                return [];
+            }
         }
         return [];
     });
@@ -784,6 +827,10 @@ const App: React.FC = () => {
         contracts.forEach(c => {
             if (!c.startDate) return;
             const start = new Date(c.startDate);
+            
+            // Safety check for invalid dates
+            if (isNaN(start.getTime())) return;
+
             start.setHours(0,0,0,0);
             
             // Calculate T4 date (Start + 6 months)
@@ -905,148 +952,210 @@ const App: React.FC = () => {
 
                 <main className="flex-1 overflow-y-auto p-4 sm:p-8 scroll-smooth">
                     {view === 'dashboard' && (
-                        <div className="space-y-6 animate-fade-in">
-                            <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+                        <div className="space-y-6 animate-fade-in relative">
+                            <div className="flex justify-between items-center mb-6">
+                                <h1 className="text-3xl font-bold">Dashboard</h1>
+                                
+                                {/* Dashboard Customization Button */}
+                                <div className="relative">
+                                    <button 
+                                        onClick={() => setIsDashboardConfigOpen(!isDashboardConfigOpen)}
+                                        className="flex items-center px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-sm font-medium text-slate-700 dark:text-slate-200"
+                                    >
+                                        <AdjustmentsIcon className="h-5 w-5 mr-2 text-slate-500" />
+                                        Personalizza
+                                    </button>
+                                    
+                                    {isDashboardConfigOpen && (
+                                        <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 z-50 animate-scale-in p-4">
+                                            <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-3 text-sm border-b pb-2">Widget Visibili</h3>
+                                            <div className="space-y-2">
+                                                <label className="flex items-center space-x-2 cursor-pointer">
+                                                    <input type="checkbox" checked={visibleWidgets.operational} onChange={() => toggleWidgetVisibility('operational')} className="rounded text-sky-500 focus:ring-sky-500" />
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300">Appuntamenti & Attività</span>
+                                                </label>
+                                                <label className="flex items-center space-x-2 cursor-pointer">
+                                                    <input type="checkbox" checked={visibleWidgets.checkups} onChange={() => toggleWidgetVisibility('checkups')} className="rounded text-sky-500 focus:ring-sky-500" />
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300">Check-up Periodici</span>
+                                                </label>
+                                                <label className="flex items-center space-x-2 cursor-pointer">
+                                                    <input type="checkbox" checked={visibleWidgets.expiring} onChange={() => toggleWidgetVisibility('expiring')} className="rounded text-sky-500 focus:ring-sky-500" />
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300">Contratti in Scadenza</span>
+                                                </label>
+                                                <label className="flex items-center space-x-2 cursor-pointer">
+                                                    <input type="checkbox" checked={visibleWidgets.stats} onChange={() => toggleWidgetVisibility('stats')} className="rounded text-sky-500 focus:ring-sky-500" />
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300">Statistiche & Totali</span>
+                                                </label>
+                                                <label className="flex items-center space-x-2 cursor-pointer">
+                                                    <input type="checkbox" checked={visibleWidgets.charts} onChange={() => toggleWidgetVisibility('charts')} className="rounded text-sky-500 focus:ring-sky-500" />
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300">Grafici Andamento</span>
+                                                </label>
+                                                <label className="flex items-center space-x-2 cursor-pointer">
+                                                    <input type="checkbox" checked={visibleWidgets.distribution} onChange={() => toggleWidgetVisibility('distribution')} className="rounded text-sky-500 focus:ring-sky-500" />
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300">Analisi Distribuzione</span>
+                                                </label>
+                                            </div>
+                                            <div className="mt-3 pt-2 border-t text-right">
+                                                <button onClick={() => setIsDashboardConfigOpen(false)} className="text-xs text-sky-600 hover:text-sky-800 dark:text-sky-400">Chiudi</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                             
                             {/* --- SEZIONE OPERATIVA (OPERATIONAL SECTION) --- */}
 
                             {/* 1. Appuntamenti e Attività Ufficio */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <AppointmentsWidget 
-                                    appointments={appointments}
-                                    onEdit={(appt) => { setEditingAppointment(appt); setIsAppointmentModalOpen(true); }}
-                                    onUpdateStatus={handleUpdateAppointmentStatus}
-                                    statuses={appointmentStatuses}
-                                />
-                                <OfficeTaskWidget 
-                                    tasks={officeTasks}
-                                    onAddTask={handleAddOfficeTask}
-                                    onToggleTask={handleToggleOfficeTask}
-                                    onDeleteTask={handleDeleteOfficeTask}
-                                />
-                            </div>
+                            {visibleWidgets.operational && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <AppointmentsWidget 
+                                        appointments={appointments}
+                                        onEdit={(appt) => { setEditingAppointment(appt); setIsAppointmentModalOpen(true); }}
+                                        onUpdateStatus={handleUpdateAppointmentStatus}
+                                        statuses={appointmentStatuses}
+                                    />
+                                    <OfficeTaskWidget 
+                                        tasks={officeTasks}
+                                        onAddTask={handleAddOfficeTask}
+                                        onToggleTask={handleToggleOfficeTask}
+                                        onDeleteTask={handleDeleteOfficeTask}
+                                    />
+                                </div>
+                            )}
 
                             {/* 2. Check-up Periodico */}
-                            <CheckupWidget 
-                                items={checkupItems}
-                                clients={clients}
-                                onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
-                                onDismiss={handleDismissCheckup}
-                            />
+                            {visibleWidgets.checkups && (
+                                <CheckupWidget 
+                                    items={checkupItems}
+                                    clients={clients}
+                                    onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
+                                    onDismiss={handleDismissCheckup}
+                                />
+                            )}
 
                             {/* 3. Contratti in Scadenza */}
-                            <ExpiringContractsWidget 
-                                contracts={contracts.filter(c => {
-                                    if (!c.endDate) return false;
-                                    const end = new Date(c.endDate);
-                                    const now = new Date();
-                                    now.setHours(0,0,0,0);
-                                    const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                                    return diff <= 60;
-                                })} 
-                                clients={clients}
-                                onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
-                                onDelete={(id) => setItemToDelete({ id, type: 'contract' })}
-                            />
+                            {visibleWidgets.expiring && (
+                                <ExpiringContractsWidget 
+                                    contracts={contracts.filter(c => {
+                                        if (!c.endDate) return false;
+                                        const end = new Date(c.endDate);
+                                        const now = new Date();
+                                        now.setHours(0,0,0,0);
+                                        const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                                        return diff <= 60;
+                                    })} 
+                                    clients={clients}
+                                    onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
+                                    onDelete={(id) => setItemToDelete({ id, type: 'contract' })}
+                                />
+                            )}
 
                             {/* --- SEZIONE ANALITICA (ANALYTICAL SECTION) --- */}
 
-                            {/* 4. Dashboard Filters (Moved below operational widgets) */}
-                            <div className="flex flex-wrap gap-4 mb-6 bg-white dark:bg-slate-800 p-4 rounded-lg shadow">
-                                <select value={dashboardYear} onChange={e => setDashboardYear(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600">
-                                    <option value="all">Tutti gli anni</option>
-                                    {availableYears.map(y => (
-                                        <option key={y} value={y}>{y}</option>
-                                    ))}
-                                </select>
-                                <select value={dashboardMonth} onChange={e => setDashboardMonth(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600">
-                                    <option value="all">Tutti i mesi</option>
-                                    {Array.from({length: 12}, (_, i) => i + 1).map(m => (
-                                        <option key={m} value={m}>{new Date(0, m-1).toLocaleString('it-IT', {month: 'long'})}</option>
-                                    ))}
-                                </select>
-                                <select value={dashboardProvider} onChange={e => setDashboardProvider(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600">
-                                    <option value="all">Tutti i fornitori</option>
-                                    {providers.map(p => <option key={p} value={p}>{p}</option>)}
-                                </select>
-                            </div>
-
-                            {/* 5. Summary Widgets */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                                <CombinedTotalsWidget 
-                                    totalClients={clients.length} 
-                                    totalContracts={filteredDashboardContracts.length}
-                                    selectedYear={dashboardYear}
-                                    selectedMonth={dashboardMonth}
-                                    selectedProvider={dashboardProvider}
-                                />
-                                <CommissionSummaryWidget 
-                                    totalCommission={totalCommission} 
-                                    energyCommission={energyCommission} 
-                                    telephonyCommission={telephonyCommission} 
-                                    selectedYear={dashboardYear} 
-                                    selectedMonth={dashboardMonth} 
-                                    selectedProvider={dashboardProvider} 
-                                />
-                                <CurrentMonthCommissionWidget 
-                                    totalCommission={currentMonthStats.total}
-                                    energyCommission={currentMonthStats.energy}
-                                    telephonyCommission={currentMonthStats.telephony}
-                                />
-                                <TotalProvidersWidget totalProviders={providers.length} energyProviderCount={energyProvidersCount} telephonyProviderCount={telephonyProvidersCount} />
-                            </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg flex flex-col">
-                                    <h3 className="text-xl font-bold mb-4">Andamento Clienti</h3>
-                                    <ClientChart clients={clients} selectedYear={dashboardYear === 'all' ? new Date().getFullYear().toString() : dashboardYear} />
-                                </div>
-                                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg flex flex-col">
-                                    <h3 className="text-xl font-bold mb-4">Andamento Contratti</h3>
-                                    <ContractChart contracts={contracts} selectedYear={dashboardYear} />
-                                </div>
-                                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg flex flex-col">
-                                    <h3 className="text-xl font-bold mb-4">Andamento Provvigioni</h3>
-                                    <CommissionChart contracts={contracts} selectedYear={dashboardYear === 'all' ? new Date().getFullYear().toString() : dashboardYear} />
-                                </div>
-                            </div>
-                            
-                            {/* Distribution Analysis Section */}
-                            <div className="space-y-4">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-lg shadow">
-                                    <h2 className="text-lg font-bold flex items-center mb-2 sm:mb-0">
-                                        <FilterIcon className="h-5 w-5 mr-2 text-slate-500" />
-                                        Analisi Distribuzione
-                                    </h2>
-                                    <div className="flex gap-2">
-                                        <select value={pieChartYear} onChange={e => setPieChartYear(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600 text-sm">
+                            {/* 4. Dashboard Filters & Stats (Grouped) */}
+                            {visibleWidgets.stats && (
+                                <>
+                                    <div className="flex flex-wrap gap-4 mb-6 bg-white dark:bg-slate-800 p-4 rounded-lg shadow">
+                                        <select value={dashboardYear} onChange={e => setDashboardYear(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600">
                                             <option value="all">Tutti gli anni</option>
                                             {availableYears.map(y => (
                                                 <option key={y} value={y}>{y}</option>
                                             ))}
                                         </select>
-                                        <select value={pieChartMonth} onChange={e => setPieChartMonth(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                        <select value={dashboardMonth} onChange={e => setDashboardMonth(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600">
                                             <option value="all">Tutti i mesi</option>
                                             {Array.from({length: 12}, (_, i) => i + 1).map(m => (
                                                 <option key={m} value={m}>{new Date(0, m-1).toLocaleString('it-IT', {month: 'long'})}</option>
                                             ))}
                                         </select>
+                                        <select value={dashboardProvider} onChange={e => setDashboardProvider(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600">
+                                            <option value="all">Tutti i fornitori</option>
+                                            {providers.map(p => <option key={p} value={p}>{p}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {/* 5. Summary Widgets */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+                                        <CombinedTotalsWidget 
+                                            totalClients={clients.length} 
+                                            totalContracts={filteredDashboardContracts.length}
+                                            selectedYear={dashboardYear}
+                                            selectedMonth={dashboardMonth}
+                                            selectedProvider={dashboardProvider}
+                                        />
+                                        <CommissionSummaryWidget 
+                                            totalCommission={totalCommission} 
+                                            energyCommission={energyCommission} 
+                                            telephonyCommission={telephonyCommission} 
+                                            selectedYear={dashboardYear} 
+                                            selectedMonth={dashboardMonth} 
+                                            selectedProvider={dashboardProvider} 
+                                        />
+                                        <CurrentMonthCommissionWidget 
+                                            totalCommission={currentMonthStats.total}
+                                            energyCommission={currentMonthStats.energy}
+                                            telephonyCommission={currentMonthStats.telephony}
+                                        />
+                                        <TotalProvidersWidget totalProviders={providers.length} energyProviderCount={energyProvidersCount} telephonyProviderCount={telephonyProvidersCount} />
+                                    </div>
+                                </>
+                            )}
+
+                            {visibleWidgets.charts && (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
+                                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg flex flex-col">
+                                        <h3 className="text-xl font-bold mb-4">Andamento Clienti</h3>
+                                        <ClientChart clients={clients} selectedYear={dashboardYear === 'all' ? new Date().getFullYear().toString() : dashboardYear} />
+                                    </div>
+                                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg flex flex-col">
+                                        <h3 className="text-xl font-bold mb-4">Andamento Contratti</h3>
+                                        <ContractChart contracts={contracts} selectedYear={dashboardYear} />
+                                    </div>
+                                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg flex flex-col">
+                                        <h3 className="text-xl font-bold mb-4">Andamento Provvigioni</h3>
+                                        <CommissionChart contracts={contracts} selectedYear={dashboardYear === 'all' ? new Date().getFullYear().toString() : dashboardYear} />
                                     </div>
                                 </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                                    <EnergyProviderPieChart 
-                                        contracts={filteredPieChartContracts.filter(c => c.type !== ContractType.Telephony)} 
-                                        onProviderClick={handleProviderClick}
-                                    />
-                                    <TelephonyProviderPieChart 
-                                        contracts={filteredPieChartContracts.filter(c => c.type === ContractType.Telephony)} 
-                                        onProviderClick={handleProviderClick}
-                                    />
-                                    <PaidStatusPieChart contracts={filteredPieChartContracts} />
-                                    <ContractExpiryStatusPieChart contracts={filteredPieChartContracts} />
+                            )}
+                            
+                            {/* Distribution Analysis Section */}
+                            {visibleWidgets.distribution && (
+                                <div className="space-y-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-lg shadow">
+                                        <h2 className="text-lg font-bold flex items-center mb-2 sm:mb-0">
+                                            <FilterIcon className="h-5 w-5 mr-2 text-slate-500" />
+                                            Analisi Distribuzione
+                                        </h2>
+                                        <div className="flex gap-2">
+                                            <select value={pieChartYear} onChange={e => setPieChartYear(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                                <option value="all">Tutti gli anni</option>
+                                                {availableYears.map(y => (
+                                                    <option key={y} value={y}>{y}</option>
+                                                ))}
+                                            </select>
+                                            <select value={pieChartMonth} onChange={e => setPieChartMonth(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                                <option value="all">Tutti i mesi</option>
+                                                {Array.from({length: 12}, (_, i) => i + 1).map(m => (
+                                                    <option key={m} value={m}>{new Date(0, m-1).toLocaleString('it-IT', {month: 'long'})}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                                        <EnergyProviderPieChart 
+                                            contracts={filteredPieChartContracts.filter(c => c.type !== ContractType.Telephony)} 
+                                            onProviderClick={handleProviderClick}
+                                        />
+                                        <TelephonyProviderPieChart 
+                                            contracts={filteredPieChartContracts.filter(c => c.type === ContractType.Telephony)} 
+                                            onProviderClick={handleProviderClick}
+                                        />
+                                        <PaidStatusPieChart contracts={filteredPieChartContracts} />
+                                        <ContractExpiryStatusPieChart contracts={filteredPieChartContracts} />
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                         </div>
                     )}

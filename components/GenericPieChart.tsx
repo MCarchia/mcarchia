@@ -1,14 +1,22 @@
-
 import React, { useMemo, useState } from 'react';
 import type { Contract } from '../types';
 
+interface PieSegment {
+    name: string;
+    count: number;
+    percentage: string;
+    color: string;
+    path: string;
+}
+
 interface GenericPieChartProps {
-  contracts: Contract[];
+  contracts?: Contract[];
+  customSegments?: { name: string, count: number, color: string }[];
   title: string;
-  icon: React.ReactNode;
-  noDataMessage: string;
+  icon?: React.ReactNode;
+  noDataMessage?: string;
   colors?: string[];
-  onSliceClick?: (providerName: string) => void;
+  onSliceClick?: (name: string) => void;
 }
 
 // Default color palette
@@ -60,9 +68,10 @@ const getArcPath = (
 
 const GenericPieChart: React.FC<GenericPieChartProps> = ({ 
   contracts,
+  customSegments,
   title,
   icon,
-  noDataMessage,
+  noDataMessage = "Nessun dato disponibile.",
   colors = defaultColors,
   onSliceClick
 }) => {
@@ -76,36 +85,48 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
   } | null>(null);
 
   const chartData = useMemo(() => {
-    if (contracts.length === 0) {
-      return { total: 0, providers: [] };
+    let rawSegments: { name: string, count: number, color?: string }[] = [];
+    let total = 0;
+
+    // Mode 1: Use provided custom segments
+    if (customSegments && customSegments.length > 0) {
+        rawSegments = customSegments;
+        total = customSegments.reduce((sum, item) => sum + item.count, 0);
+    } 
+    // Mode 2: Aggregate from contracts (by provider)
+    else if (contracts && contracts.length > 0) {
+        total = contracts.length;
+        const providerCounts = contracts.reduce((acc, contract) => {
+            acc[contract.provider] = (acc[contract.provider] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+        
+        rawSegments = Object.entries(providerCounts)
+            .sort((a, b) => (b[1] as number) - (a[1] as number))
+            .map(([name, count]) => ({ name, count: count as number }));
     }
 
-    const providerCounts = contracts.reduce((acc: Record<string, number>, contract) => {
-      acc[contract.provider] = (acc[contract.provider] || 0) + 1;
-      return acc;
-    }, {});
+    if (total === 0) {
+        return { total: 0, providers: [] };
+    }
 
-    const sortedProviders = Object.entries(providerCounts).sort(([, countA], [, countB]) => (countB as number) - (countA as number));
-    
-    const total = contracts.length;
-    
+    // Calculate angles and paths
     const initialState = {
-        providers: [] as {name: string, count: number, percentage: string, color: string, path: string}[],
+        providers: [] as PieSegment[],
         cumulativeAngle: 0
     };
 
-    const result = sortedProviders.reduce((acc, [name, count], index) => {
-      const countNum = count as number;
-      const percentage = (countNum / total) * 100;
+    const result = rawSegments.reduce((acc, item, index) => {
+      const percentage = (item.count / total) * 100;
       const angle = (percentage / 100) * (2 * Math.PI);
       const startAngle = acc.cumulativeAngle;
       const endAngle = startAngle + angle;
       
-      const newProvider = {
-          name,
-          count: countNum,
+      const newProvider: PieSegment = {
+          name: item.name,
+          count: item.count,
           percentage: percentage.toFixed(1),
-          color: colors[index % colors.length],
+          color: item.color || colors[index % colors.length],
           path: getArcPath(50, 50, 50, startAngle, endAngle),
       };
 
@@ -119,7 +140,7 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
       total,
       providers: result.providers,
     };
-  }, [contracts, colors]);
+  }, [contracts, customSegments, colors]);
 
   const handleMouseMove = (e: React.MouseEvent, provider: { name: string, count: number, percentage: string }) => {
     const svgRect = e.currentTarget.closest('svg')?.getBoundingClientRect();
@@ -148,7 +169,7 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-between h-full relative">
       <div className="flex items-center mb-4 w-full justify-center text-center">
-        <div className="mr-2">{icon}</div>
+        {icon && <div className="mr-2">{icon}</div>}
         <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">{title}</h2>
       </div>
       
@@ -174,7 +195,7 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
                 {tooltip && tooltip.visible && (
                     <div 
                         className="absolute z-50 px-2 py-1 bg-slate-800 text-white text-xs font-semibold rounded shadow-lg pointer-events-none whitespace-nowrap transform -translate-x-1/2 -translate-y-full mb-2"
-                        style={{ left: tooltip.x, top: tooltip.y - 10 }} // -10 per staccarlo un po' dal cursore
+                        style={{ left: tooltip.x, top: tooltip.y - 10 }}
                     >
                         <div className="text-center">
                             <div>{tooltip.name}</div>
@@ -194,9 +215,6 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
                           key={provider.name} 
                           className={`flex items-center justify-between p-1 rounded hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${onSliceClick ? 'cursor-pointer' : ''}`}
                           onClick={() => onSliceClick && onSliceClick(provider.name)}
-                          onMouseEnter={(e) => {
-                             // Simulazione tooltip statico sulla legenda (opzionale, qui mostriamo solo title nativo)
-                          }}
                         >
                             <div className="flex items-center overflow-hidden">
                                 <span className="h-2.5 w-2.5 rounded-full mr-2 flex-shrink-0" style={{ backgroundColor: provider.color }} aria-hidden="true"></span>

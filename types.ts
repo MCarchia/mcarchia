@@ -45,6 +45,14 @@ export interface Iban {
   type: 'personal' | 'business';
 }
 
+export interface ClientDocument {
+  name: string;
+  url: string;
+  type: string; // mime type
+  uploadedAt: string;
+  path: string; // Storage path for deletion
+}
+
 export interface Client {
   id: string;
   firstName: string;
@@ -58,6 +66,7 @@ export interface Client {
   legalAddress?: Address;
   residentialAddress?: Address;
   notes?: string;
+  documents?: ClientDocument[];
   createdAt: string;
 }
 
@@ -78,4 +87,11 @@ export interface OfficeTask {
   title: string; // Es. "Voltura Mario Rossi"
   isCompleted: boolean;
   createdAt: string;
+}
+
+export interface CheckupItem {
+  contract: Contract;
+  type: 'T4' | 'T8';
+  targetDate: Date;
+  daysDiff: number;
 }
