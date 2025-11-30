@@ -109,7 +109,7 @@ const ContractExpiryStatusPieChart: React.FC<ContractExpiryStatusPieChartProps> 
 
     if (expiringCount > 0) {
       segments.push({
-        name: 'In Scadenza (60gg)',
+        name: 'In Scadenza',
         count: expiringCount,
         percentage: expiringPercentage.toFixed(1),
         color: '#f59e0b', // amber-500
@@ -133,14 +133,15 @@ const ContractExpiryStatusPieChart: React.FC<ContractExpiryStatusPieChartProps> 
   }, [contracts]);
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-      <div className="flex items-center mb-4">
-        <CalendarIcon className="h-6 w-6 text-indigo-500 mr-3" />
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Stato Scadenza Contratti</h2>
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-between h-full relative">
+      <div className="flex items-center mb-4 w-full justify-center text-center">
+        <CalendarIcon className="h-6 w-6 text-indigo-500 mr-2" />
+        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">Stato Scadenze</h2>
       </div>
       {chartData.total > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-          <div className="relative w-full aspect-square max-w-[160px] mx-auto">
+        <div className="flex flex-col items-center w-full flex-grow">
+          {/* Pie Chart SVG */}
+          <div className="relative w-full aspect-square max-w-[180px] mb-6">
             <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
               {chartData.segments.map((segment) => (
                 <path key={segment.name} d={segment.path} fill={segment.color}>
@@ -149,17 +150,17 @@ const ContractExpiryStatusPieChart: React.FC<ContractExpiryStatusPieChartProps> 
               ))}
             </svg>
           </div>
-          <div className="text-xs">
-            <ul className="space-y-2">
+          {/* Legend */}
+          <div className="w-full">
+            <ul className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
               {chartData.segments.map(segment => (
-                <li key={segment.name} className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <span className="h-3 w-3 rounded-full mr-3" style={{ backgroundColor: segment.color }} aria-hidden="true"></span>
-                    <span className="font-medium text-slate-700 dark:text-slate-200">{segment.name}</span>
+                <li key={segment.name} className="flex items-center justify-between p-1 rounded hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                  <div className="flex items-center overflow-hidden">
+                    <span className="h-2.5 w-2.5 rounded-full mr-2 flex-shrink-0" style={{ backgroundColor: segment.color }} aria-hidden="true"></span>
+                    <span className="font-medium text-slate-700 dark:text-slate-200 truncate">{segment.name}</span>
                   </div>
-                  <div className="text-slate-500 dark:text-slate-400 whitespace-nowrap ml-2">
+                  <div className="text-slate-500 dark:text-slate-400 whitespace-nowrap ml-1 flex-shrink-0">
                     <span className="font-semibold text-slate-800 dark:text-slate-100">{segment.count}</span>
-                    <span className="ml-1 text-[10px]">({segment.percentage}%)</span>
                   </div>
                 </li>
               ))}
@@ -168,7 +169,7 @@ const ContractExpiryStatusPieChart: React.FC<ContractExpiryStatusPieChartProps> 
         </div>
       ) : (
         <div className="text-center py-10 h-full flex flex-col justify-center">
-          <p className="text-slate-500 dark:text-slate-400">Nessun contratto da visualizzare.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Nessun contratto.</p>
         </div>
       )}
     </div>

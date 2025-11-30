@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { Contract } from '../types';
 
 interface GenericPieChartProps {
@@ -8,6 +8,7 @@ interface GenericPieChartProps {
   icon: React.ReactNode;
   noDataMessage: string;
   colors?: string[];
+  onSliceClick?: (providerName: string) => void;
 }
 
 // Default color palette
@@ -62,21 +63,28 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
   title,
   icon,
   noDataMessage,
-  colors = defaultColors 
+  colors = defaultColors,
+  onSliceClick
 }) => {
-  
+  const [tooltip, setTooltip] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    name: string;
+    count: number;
+    percentage: string;
+  } | null>(null);
+
   const chartData = useMemo(() => {
     if (contracts.length === 0) {
       return { total: 0, providers: [] };
     }
 
-    // FIX: Explicitly typed the accumulator in the reduce function to ensure correct type inference for counts.
     const providerCounts = contracts.reduce((acc: Record<string, number>, contract) => {
       acc[contract.provider] = (acc[contract.provider] || 0) + 1;
       return acc;
     }, {});
 
-    // FIX: Explicitly cast count values to number to satisfy TypeScript arithmetic requirements
     const sortedProviders = Object.entries(providerCounts).sort(([, countA], [, countB]) => (countB as number) - (countA as number));
     
     const total = contracts.length;
@@ -113,39 +121,89 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
     };
   }, [contracts, colors]);
 
+  const handleMouseMove = (e: React.MouseEvent, provider: { name: string, count: number, percentage: string }) => {
+    const svgRect = e.currentTarget.closest('svg')?.getBoundingClientRect();
+    const containerRect = e.currentTarget.closest('.pie-container')?.getBoundingClientRect();
+    
+    if (containerRect) {
+        // Calculate position relative to the container div
+        const x = e.clientX - containerRect.left;
+        const y = e.clientY - containerRect.top;
+
+        setTooltip({
+            visible: true,
+            x,
+            y,
+            name: provider.name,
+            count: provider.count,
+            percentage: provider.percentage
+        });
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setTooltip(null);
+  };
+
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-      <div className="flex items-center mb-4">
-        {icon}
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{title}</h2>
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-between h-full relative">
+      <div className="flex items-center mb-4 w-full justify-center text-center">
+        <div className="mr-2">{icon}</div>
+        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">{title}</h2>
       </div>
+      
       {chartData.providers.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-            <div className="relative w-full aspect-square max-w-[160px] mx-auto">
-                 <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
+        <div className="flex flex-col items-center w-full flex-grow">
+            {/* Pie Chart SVG */}
+            <div className="relative w-full aspect-square max-w-[180px] mb-6 pie-container">
+                 <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 drop-shadow-md overflow-visible">
                     {chartData.providers.map((provider) => (
                         <path
                             key={provider.name}
                             d={provider.path}
                             fill={provider.color}
-                        >
-                           <title>{`${provider.name}: ${provider.count} (${provider.percentage}%)`}</title>
-                        </path>
+                            className={`transition-all duration-300 ${onSliceClick ? 'cursor-pointer hover:opacity-90 hover:scale-105 origin-center' : ''}`}
+                            onClick={() => onSliceClick && onSliceClick(provider.name)}
+                            onMouseMove={(e) => handleMouseMove(e, provider)}
+                            onMouseLeave={handleMouseLeave}
+                        />
                     ))}
                 </svg>
+                
+                {/* Tooltip */}
+                {tooltip && tooltip.visible && (
+                    <div 
+                        className="absolute z-50 px-2 py-1 bg-slate-800 text-white text-xs font-semibold rounded shadow-lg pointer-events-none whitespace-nowrap transform -translate-x-1/2 -translate-y-full mb-2"
+                        style={{ left: tooltip.x, top: tooltip.y - 10 }} // -10 per staccarlo un po' dal cursore
+                    >
+                        <div className="text-center">
+                            <div>{tooltip.name}</div>
+                            <div className="font-normal opacity-90">{tooltip.count} ({tooltip.percentage}%)</div>
+                        </div>
+                        {/* Arrow */}
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                    </div>
+                )}
             </div>
           
-            <div className="text-xs">
-                <ul className="space-y-2">
+            {/* Legend Grid */}
+            <div className="w-full">
+                <ul className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
                     {chartData.providers.map(provider => (
-                        <li key={provider.name} className="flex items-center justify-between">
-                            <div className="flex items-center">
-                                <span className="h-3 w-3 rounded-full mr-3" style={{ backgroundColor: provider.color }} aria-hidden="true"></span>
-                                <span className="font-medium text-slate-700 dark:text-slate-200 break-words">{provider.name}</span>
+                        <li 
+                          key={provider.name} 
+                          className={`flex items-center justify-between p-1 rounded hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${onSliceClick ? 'cursor-pointer' : ''}`}
+                          onClick={() => onSliceClick && onSliceClick(provider.name)}
+                          onMouseEnter={(e) => {
+                             // Simulazione tooltip statico sulla legenda (opzionale, qui mostriamo solo title nativo)
+                          }}
+                        >
+                            <div className="flex items-center overflow-hidden">
+                                <span className="h-2.5 w-2.5 rounded-full mr-2 flex-shrink-0" style={{ backgroundColor: provider.color }} aria-hidden="true"></span>
+                                <span className="font-medium text-slate-700 dark:text-slate-200 truncate" title={provider.name}>{provider.name}</span>
                             </div>
-                            <div className="text-slate-500 dark:text-slate-400 whitespace-nowrap ml-2">
+                            <div className="text-slate-500 dark:text-slate-400 whitespace-nowrap ml-1 flex-shrink-0">
                                 <span className="font-semibold text-slate-800 dark:text-slate-100">{provider.count}</span>
-                                <span className="ml-1 text-[10px]">({provider.percentage}%)</span>
                             </div>
                         </li>
                     ))}
@@ -154,7 +212,7 @@ const GenericPieChart: React.FC<GenericPieChartProps> = ({
         </div>
       ) : (
         <div className="text-center py-10 h-full flex flex-col justify-center">
-          <p className="text-slate-500 dark:text-slate-400">{noDataMessage}</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">{noDataMessage}</p>
         </div>
       )}
     </div>

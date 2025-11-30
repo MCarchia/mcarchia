@@ -60,3 +60,22 @@ export interface Client {
   notes?: string;
   createdAt: string;
 }
+
+export interface Appointment {
+  id: string;
+  clientName: string; // Nome libero (prospect o cliente esistente)
+  provider: string;   // Compagnia proposta
+  date: string;       // Data visita (ISO string YYYY-MM-DD o datetime)
+  time?: string;      // Ora opzionale
+  location?: string;  // Luogo dell'appuntamento (indirizzo)
+  notes?: string;
+  status: string;     // Dynamic status (e.g., 'Da Fare', 'Completato', 'Annullato')
+  createdAt: string;
+}
+
+export interface OfficeTask {
+  id: string;
+  title: string; // Es. "Voltura Mario Rossi"
+  isCompleted: boolean;
+  createdAt: string;
+}
