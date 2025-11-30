@@ -44,11 +44,11 @@ const CommissionChart: React.FC<CommissionChartProps> = ({ contracts, selectedYe
   const totalCommissionForYear = useMemo(() => chartData.reduce((sum, item) => sum + item.commission, 0), [chartData]);
 
   return (
-    <>
+    <div className="pb-12">
       <div className="text-sm text-slate-500 dark:text-slate-400 mb-6">
         Totale provvigioni per l'anno {selectedYear}: <span className="font-bold text-slate-700 dark:text-slate-200">{totalCommissionForYear.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}</span>
       </div>
-      <div className="flex justify-around items-end h-64 space-x-2 text-center pb-6" aria-label={`Grafico a barre delle provvigioni per l'anno ${selectedYear}`}>
+      <div className="flex justify-around items-end h-64 space-x-2 text-center border-b border-slate-200 dark:border-slate-700" aria-label={`Grafico a barre delle provvigioni per l'anno ${selectedYear}`}>
         {chartData.map(({ month, commission }) => (
           <div key={`${month}-${selectedYear}`} className="flex flex-col items-center justify-end w-full h-full group min-w-0 relative">
             <div
@@ -64,11 +64,16 @@ const CommissionChart: React.FC<CommissionChartProps> = ({ contracts, selectedYe
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
                </div>
             </div>
-            <div className="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase [writing-mode:vertical-rl] [transform:rotate(180deg)] absolute -bottom-6">{month}</div>
+            {/* Label Centrata e Distanziata */}
+            <div className="absolute top-full left-0 w-full flex justify-center mt-4">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase [writing-mode:vertical-rl] [transform:rotate(180deg)]">
+                    {month}
+                </span>
+            </div>
           </div>
         ))}
       </div>
-    </>
+    </div>
   );
 };
 

@@ -1,9 +1,18 @@
 
-import type { Client, Contract } from '../types';
+import type { Client, Contract, Appointment, OfficeTask, ClientDocument } from '../types';
 import * as firebaseApi from './firebaseApi';
 
 // All functions now call firebaseApi, which interacts with Firestore.
 // The async nature is now real, as we are making network requests.
+
+// --- Storage API ---
+export const uploadClientDocument = async (file: File): Promise<ClientDocument> => {
+    return firebaseApi.uploadClientDocument(file);
+};
+
+export const deleteClientDocument = async (path: string): Promise<void> => {
+    return firebaseApi.deleteClientDocument(path);
+};
 
 // --- Clients API ---
 export const getAllClients = async (): Promise<Client[]> => {
@@ -39,6 +48,41 @@ export const deleteContract = async (contractId: string): Promise<void> => {
     return firebaseApi.deleteContract(contractId);
 };
 
+// --- Appointments API ---
+export const getAllAppointments = async (): Promise<Appointment[]> => {
+    return firebaseApi.getAllAppointments();
+};
+
+export const createAppointment = async (apptData: Omit<Appointment, 'id' | 'createdAt'>): Promise<Appointment> => {
+    return firebaseApi.createAppointment(apptData);
+};
+
+export const updateAppointment = async (updatedAppt: Appointment): Promise<Appointment> => {
+    return firebaseApi.updateAppointment(updatedAppt);
+};
+
+export const deleteAppointment = async (apptId: string): Promise<void> => {
+    return firebaseApi.deleteAppointment(apptId);
+};
+
+// --- Office Tasks API ---
+export const getAllOfficeTasks = async (): Promise<OfficeTask[]> => {
+    return firebaseApi.getAllOfficeTasks();
+};
+
+export const createOfficeTask = async (title: string): Promise<OfficeTask> => {
+    return firebaseApi.createOfficeTask(title);
+};
+
+export const updateOfficeTask = async (task: OfficeTask): Promise<OfficeTask> => {
+    return firebaseApi.updateOfficeTask(task);
+};
+
+export const deleteOfficeTask = async (taskId: string): Promise<void> => {
+    return firebaseApi.deleteOfficeTask(taskId);
+};
+
+
 // --- Providers API ---
 export const getAllProviders = async (): Promise<string[]> => {
     return firebaseApi.getAllProviders();
@@ -63,6 +107,19 @@ export const addOperationType = async (newType: string): Promise<string[]> => {
 
 export const deleteOperationType = async (typeToDelete: string): Promise<string[]> => {
     return firebaseApi.deleteOperationType(typeToDelete);
+};
+
+// --- Appointment Statuses API ---
+export const getAllAppointmentStatuses = async (): Promise<string[]> => {
+    return firebaseApi.getAllAppointmentStatuses();
+};
+
+export const addAppointmentStatus = async (newStatus: string): Promise<string[]> => {
+    return firebaseApi.addAppointmentStatus(newStatus);
+};
+
+export const deleteAppointmentStatus = async (statusToDelete: string): Promise<string[]> => {
+    return firebaseApi.deleteAppointmentStatus(statusToDelete);
 };
 
 

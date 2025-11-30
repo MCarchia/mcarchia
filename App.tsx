@@ -1,12 +1,14 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import * as api from './services/api';
-import { Client, Contract, ContractType } from './types';
+import { Client, Contract, ContractType, Appointment, OfficeTask } from './types';
 import Sidebar from './components/Sidebar';
 import { ClientListView } from './components/ClientListView';
 import { ContractListView } from './components/ContractListView';
+import { AppointmentListView } from './components/AppointmentListView';
 import { ClientFormModal } from './components/ClientFormModal';
 import { ContractFormModal } from './components/ContractFormModal';
+import { AppointmentFormModal } from './components/AppointmentFormModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import SearchModal from './components/SearchModal';
 import GlobalSearchBar from './components/GlobalSearchBar';
@@ -27,6 +29,8 @@ import TelephonyProviderPieChart from './components/TelephonyProviderPieChart';
 import ContractExpiryStatusPieChart from './components/ContractExpiryStatusPieChart';
 import ExpiringContractsWidget from './components/ExpiringContractsWidget';
 import CheckupWidget, { CheckupItem } from './components/CheckupWidget';
+import AppointmentsWidget from './components/AppointmentsWidget';
+import OfficeTaskWidget from './components/OfficeTaskWidget';
 import { Spinner } from './components/Spinner';
 
 // Simple Toast Component (internal)
@@ -44,14 +48,20 @@ const SettingsView = ({
     onDeleteProvider,
     operationTypes,
     onAddOperationType,
-    onDeleteOperationType
+    onDeleteOperationType,
+    appointmentStatuses,
+    onAddAppointmentStatus,
+    onDeleteAppointmentStatus
 }: { 
     providers: string[], 
     onAddProvider: (p: string) => Promise<void>, 
     onDeleteProvider: (p: string) => Promise<void>,
     operationTypes: string[],
     onAddOperationType: (t: string) => Promise<void>,
-    onDeleteOperationType: (t: string) => Promise<void>
+    onDeleteOperationType: (t: string) => Promise<void>,
+    appointmentStatuses: string[],
+    onAddAppointmentStatus: (s: string) => Promise<void>,
+    onDeleteAppointmentStatus: (s: string) => Promise<void>
 }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -60,6 +70,7 @@ const SettingsView = ({
     const [msg, setMsg] = useState('');
 
     const [newOperationType, setNewOperationType] = useState('');
+    const [newAppointmentStatus, setNewAppointmentStatus] = useState('');
 
     useEffect(() => {
         api.getCredentials().then(c => {
@@ -91,6 +102,13 @@ const SettingsView = ({
         if(!newOperationType) return;
         await onAddOperationType(newOperationType);
         setNewOperationType('');
+    }
+
+    const handleAddAppStatus = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if(!newAppointmentStatus) return;
+        await onAddAppointmentStatus(newAppointmentStatus);
+        setNewAppointmentStatus('');
     }
 
     return (
@@ -127,6 +145,40 @@ const SettingsView = ({
                     <button type="submit" className="px-4 py-2 bg-sky-500 text-white rounded hover:bg-sky-600">Salva</button>
                     {msg && <span className="ml-3 text-sm text-green-500">{msg}</span>}
                 </form>
+            </div>
+
+            <hr className="border-slate-200 dark:border-slate-700" />
+
+            {/* Gestione Stati Appuntamento */}
+             <div>
+                    <h3 className="text-lg font-semibold mb-2 text-slate-700 dark:text-slate-200">Stati Appuntamenti</h3>
+                    <p className="text-sm text-slate-500 mb-4">Definisci gli stati possibili per gli appuntamenti (es. Da Fare, Completato, Annullato).</p>
+                    
+                    <form onSubmit={handleAddAppStatus} className="flex gap-2 mb-4 max-w-md">
+                        <input 
+                        type="text" 
+                        value={newAppointmentStatus} 
+                        onChange={e => setNewAppointmentStatus(e.target.value)} 
+                        placeholder="Es. Da Fare, Rimandato..." 
+                        className="flex-1 border p-2 rounded dark:bg-slate-700 dark:border-slate-600 dark:text-white" 
+                        required
+                        />
+                        <button type="submit" className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Aggiungi</button>
+                    </form>
+
+                    <div className="border rounded divide-y dark:border-slate-700 dark:divide-slate-700 max-h-60 overflow-y-auto max-w-md">
+                        {appointmentStatuses.map(status => (
+                            <div key={status} className="p-2 flex justify-between items-center bg-white dark:bg-slate-800 dark:text-slate-200 text-sm">
+                                <span>{status}</span>
+                                <button 
+                                onClick={() => onDeleteAppointmentStatus(status)} 
+                                className="text-red-500 hover:text-red-700 p-1"
+                                >
+                                <TrashIcon className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
             </div>
 
             <hr className="border-slate-200 dark:border-slate-700" />
@@ -193,10 +245,14 @@ const App: React.FC = () => {
     // State definitions
     const [clients, setClients] = useState<Client[]>([]);
     const [contracts, setContracts] = useState<Contract[]>([]);
+    const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [officeTasks, setOfficeTasks] = useState<OfficeTask[]>([]);
     const [providers, setProviders] = useState<string[]>([]);
     const [operationTypes, setOperationTypes] = useState<string[]>([]);
+    const [appointmentStatuses, setAppointmentStatuses] = useState<string[]>([]);
+
     const [loading, setLoading] = useState(true);
-    const [view, setView] = useState<'dashboard' | 'clients' | 'contracts' | 'settings'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'clients' | 'contracts' | 'appointments' | 'office-tasks' | 'settings'>('dashboard');
     
     // Initial sidebar state: open on desktop (>= 1024px), closed on mobile
     const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -210,7 +266,7 @@ const App: React.FC = () => {
     
     // Modals & Toast State
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
-    const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'client' | 'contract' | 'provider' | 'operationType' } | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'client' | 'contract' | 'provider' | 'operationType' | 'appointmentStatus' | 'appointment' } | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     
     const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -219,12 +275,16 @@ const App: React.FC = () => {
     const [isContractModalOpen, setIsContractModalOpen] = useState(false);
     const [editingContract, setEditingContract] = useState<Contract | null>(null);
     
+    const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
+    const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+
     const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
     const [isSaving, setIsSaving] = useState(false);
     const [isClientSuccess, setIsClientSuccess] = useState(false);
     const [isContractSuccess, setIsContractSuccess] = useState(false);
+    const [isAppointmentSuccess, setIsAppointmentSuccess] = useState(false);
 
     // Contract List Filters State
     const [contractProviderFilter, setContractProviderFilter] = useState('all');
@@ -299,6 +359,8 @@ const App: React.FC = () => {
         setIsAuthenticated(false);
         setClients([]);
         setContracts([]);
+        setAppointments([]);
+        setOfficeTasks([]);
         setProviders([]);
     };
 
@@ -309,23 +371,32 @@ const App: React.FC = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [clientsData, contractsData, providersData, opsData] = await Promise.all([
+                const [clientsData, contractsData, apptsData, officeData, providersData, opsData, apptStatusesData] = await Promise.all([
                     api.getAllClients(),
                     api.getAllContracts(),
+                    api.getAllAppointments(),
+                    api.getAllOfficeTasks(),
                     api.getAllProviders(),
-                    api.getAllOperationTypes()
+                    api.getAllOperationTypes(),
+                    api.getAllAppointmentStatuses()
                 ]);
                 setClients(clientsData || []);
                 setContracts(contractsData || []);
+                setAppointments(apptsData || []);
+                setOfficeTasks(officeData || []);
                 setProviders(providersData || []);
                 setOperationTypes(opsData || []);
+                setAppointmentStatuses(apptStatusesData || []);
             } catch (error) {
                 console.error("Failed to load data", error);
                 setToast({ message: "Errore caricamento dati. Verifica la console.", type: 'error' });
                 setClients([]);
                 setContracts([]);
+                setAppointments([]);
+                setOfficeTasks([]);
                 setProviders([]);
                 setOperationTypes([]);
+                setAppointmentStatuses([]);
             } finally {
                 setLoading(false);
             }
@@ -406,6 +477,10 @@ const App: React.FC = () => {
                 await api.deleteContract(idString);
                 setContracts(prevContracts => prevContracts.filter(contract => contract.id !== idString));
                 setToast({ message: "Contratto eliminato con successo!", type: 'success' });
+            } else if (type === 'appointment') {
+                await api.deleteAppointment(idString);
+                setAppointments(prev => prev.filter(a => a.id !== idString));
+                setToast({ message: "Appuntamento eliminato!", type: 'success' });
             } else if (type === 'provider') {
                 const updatedProviders = await api.deleteProvider(idString);
                 setProviders(updatedProviders);
@@ -414,6 +489,10 @@ const App: React.FC = () => {
                 const updatedOps = await api.deleteOperationType(idString);
                 setOperationTypes(updatedOps);
                 setToast({ message: "Tipo operazione eliminato!", type: 'success' });
+            } else if (type === 'appointmentStatus') {
+                const updatedStatuses = await api.deleteAppointmentStatus(idString);
+                setAppointmentStatuses(updatedStatuses);
+                setToast({ message: "Stato appuntamento eliminato!", type: 'success' });
             }
         } catch (e: any) {
             let errorMessage = "Eliminazione fallita.";
@@ -456,6 +535,22 @@ const App: React.FC = () => {
 
     const handleDeleteOperationType = async (name: string) => {
         setItemToDelete({ id: name, type: 'operationType' });
+    };
+
+    const handleAddAppointmentStatus = async (name: string) => {
+        try {
+            const updated = await api.addAppointmentStatus(name);
+            setAppointmentStatuses(updated);
+            setToast({ message: "Stato appuntamento aggiunto!", type: 'success' });
+        } catch (e: any) {
+             const errorDetails = e instanceof Error ? e.message : String(e);
+            console.error("Add app status error:", errorDetails);
+            setToast({ message: "Errore aggiunta stato.", type: 'error' });
+        }
+    };
+
+    const handleDeleteAppointmentStatus = async (name: string) => {
+        setItemToDelete({ id: name, type: 'appointmentStatus' });
     };
 
 
@@ -514,6 +609,43 @@ const App: React.FC = () => {
         }
     };
 
+    const handleSaveAppointment = async (apptData: Omit<Appointment, 'id' | 'createdAt'>) => {
+        setIsSaving(true);
+        try {
+            if (editingAppointment) {
+                const updated = await api.updateAppointment({ ...apptData, id: editingAppointment.id, createdAt: editingAppointment.createdAt });
+                setAppointments(prev => prev.map(a => a.id === updated.id ? updated : a));
+            } else {
+                const created = await api.createAppointment(apptData);
+                setAppointments(prev => [...prev, created]);
+            }
+
+            setIsSaving(false);
+            setIsAppointmentSuccess(true);
+
+            setTimeout(() => {
+                setIsAppointmentSuccess(false);
+                setIsAppointmentModalOpen(false);
+                setToast({ message: editingAppointment ? "Appuntamento aggiornato!" : "Appuntamento creato!", type: 'success' });
+            }, 1000);
+        } catch (e) {
+            console.error("Save appointment error:", e);
+            setToast({ message: "Errore salvataggio appuntamento", type: 'error' });
+            setIsSaving(false);
+        }
+    };
+
+    const handleUpdateAppointmentStatus = async (appointment: Appointment, newStatus: string) => {
+        try {
+            const updated = await api.updateAppointment({ ...appointment, status: newStatus });
+            setAppointments(prev => prev.map(a => a.id === updated.id ? updated : a));
+            setToast({ message: `Stato aggiornato a: ${newStatus}`, type: 'success' });
+        } catch (e) {
+            console.error("Error updating appointment status:", e);
+            setToast({ message: "Errore aggiornamento stato", type: 'error' });
+        }
+    };
+
     const togglePaidStatus = async (contract: Contract) => {
         try {
             const updated = await api.updateContract({ ...contract, isPaid: !contract.isPaid });
@@ -524,6 +656,39 @@ const App: React.FC = () => {
         }
     };
 
+    // --- Office Task Handlers ---
+    const handleAddOfficeTask = async (title: string) => {
+        try {
+            const created = await api.createOfficeTask(title);
+            setOfficeTasks(prev => [created, ...prev]);
+            setToast({ message: "Attività aggiunta!", type: 'success' });
+        } catch (e) {
+            console.error("Add task error:", e);
+            setToast({ message: "Errore aggiunta attività", type: 'error' });
+        }
+    };
+
+    const handleToggleOfficeTask = async (task: OfficeTask) => {
+        try {
+            const updated = await api.updateOfficeTask({ ...task, isCompleted: !task.isCompleted });
+            setOfficeTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+        } catch (e) {
+            console.error("Toggle task error:", e);
+            setToast({ message: "Errore aggiornamento attività", type: 'error' });
+        }
+    };
+
+    const handleDeleteOfficeTask = async (taskId: string) => {
+        try {
+            await api.deleteOfficeTask(taskId);
+            setOfficeTasks(prev => prev.filter(t => t.id !== taskId));
+            setToast({ message: "Attività eliminata", type: 'success' });
+        } catch (e) {
+            console.error("Delete task error:", e);
+            setToast({ message: "Errore eliminazione attività", type: 'error' });
+        }
+    };
+    
     // --- Dashboard Calculations ---
     const filteredDashboardContracts = useMemo(() => {
         return contracts.filter(c => {
@@ -743,7 +908,50 @@ const App: React.FC = () => {
                         <div className="space-y-6 animate-fade-in">
                             <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
                             
-                            {/* Dashboard Filters */}
+                            {/* --- SEZIONE OPERATIVA (OPERATIONAL SECTION) --- */}
+
+                            {/* 1. Appuntamenti e Attività Ufficio */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <AppointmentsWidget 
+                                    appointments={appointments}
+                                    onEdit={(appt) => { setEditingAppointment(appt); setIsAppointmentModalOpen(true); }}
+                                    onUpdateStatus={handleUpdateAppointmentStatus}
+                                    statuses={appointmentStatuses}
+                                />
+                                <OfficeTaskWidget 
+                                    tasks={officeTasks}
+                                    onAddTask={handleAddOfficeTask}
+                                    onToggleTask={handleToggleOfficeTask}
+                                    onDeleteTask={handleDeleteOfficeTask}
+                                />
+                            </div>
+
+                            {/* 2. Check-up Periodico */}
+                            <CheckupWidget 
+                                items={checkupItems}
+                                clients={clients}
+                                onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
+                                onDismiss={handleDismissCheckup}
+                            />
+
+                            {/* 3. Contratti in Scadenza */}
+                            <ExpiringContractsWidget 
+                                contracts={contracts.filter(c => {
+                                    if (!c.endDate) return false;
+                                    const end = new Date(c.endDate);
+                                    const now = new Date();
+                                    now.setHours(0,0,0,0);
+                                    const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                                    return diff <= 60;
+                                })} 
+                                clients={clients}
+                                onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
+                                onDelete={(id) => setItemToDelete({ id, type: 'contract' })}
+                            />
+
+                            {/* --- SEZIONE ANALITICA (ANALYTICAL SECTION) --- */}
+
+                            {/* 4. Dashboard Filters (Moved below operational widgets) */}
                             <div className="flex flex-wrap gap-4 mb-6 bg-white dark:bg-slate-800 p-4 rounded-lg shadow">
                                 <select value={dashboardYear} onChange={e => setDashboardYear(e.target.value)} className="p-2 border rounded dark:bg-slate-700 dark:border-slate-600">
                                     <option value="all">Tutti gli anni</option>
@@ -763,27 +971,7 @@ const App: React.FC = () => {
                                 </select>
                             </div>
 
-                            <CheckupWidget 
-                                items={checkupItems}
-                                clients={clients}
-                                onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
-                                onDismiss={handleDismissCheckup}
-                            />
-
-                            <ExpiringContractsWidget 
-                                contracts={contracts.filter(c => {
-                                     if (!c.endDate) return false;
-                                     const end = new Date(c.endDate);
-                                     const now = new Date();
-                                     now.setHours(0,0,0,0);
-                                     const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                                     return diff <= 60;
-                                })} 
-                                clients={clients}
-                                onEdit={(c) => { setEditingContract(c); setIsContractModalOpen(true); }}
-                                onDelete={(id) => setItemToDelete({ id, type: 'contract' })}
-                            />
-
+                            {/* 5. Summary Widgets */}
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                                 <CombinedTotalsWidget 
                                     totalClients={clients.length} 
@@ -809,15 +997,15 @@ const App: React.FC = () => {
                             </div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+                                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg flex flex-col">
                                     <h3 className="text-xl font-bold mb-4">Andamento Clienti</h3>
                                     <ClientChart clients={clients} selectedYear={dashboardYear === 'all' ? new Date().getFullYear().toString() : dashboardYear} />
                                 </div>
-                                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+                                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg flex flex-col">
                                     <h3 className="text-xl font-bold mb-4">Andamento Contratti</h3>
                                     <ContractChart contracts={contracts} selectedYear={dashboardYear} />
                                 </div>
-                                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg">
+                                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg flex flex-col">
                                     <h3 className="text-xl font-bold mb-4">Andamento Provvigioni</h3>
                                     <CommissionChart contracts={contracts} selectedYear={dashboardYear === 'all' ? new Date().getFullYear().toString() : dashboardYear} />
                                 </div>
@@ -921,6 +1109,32 @@ const App: React.FC = () => {
                         />
                     )}
 
+                    {view === 'appointments' && (
+                        <AppointmentListView 
+                            appointments={appointments}
+                            onAdd={() => { setEditingAppointment(null); setIsAppointmentModalOpen(true); }}
+                            onEdit={(a) => { setEditingAppointment(a); setIsAppointmentModalOpen(true); }}
+                            onDelete={(id) => setItemToDelete({ id, type: 'appointment' })}
+                            onUpdateStatus={handleUpdateAppointmentStatus}
+                            statuses={appointmentStatuses}
+                        />
+                    )}
+
+                    {view === 'office-tasks' && (
+                        <div className="h-full flex flex-col">
+                            <h1 className="text-3xl font-bold mb-6 text-slate-800 dark:text-slate-100">Attività Ufficio</h1>
+                            <div className="flex-1 max-w-4xl mx-auto w-full">
+                                <OfficeTaskWidget 
+                                    tasks={officeTasks}
+                                    onAddTask={handleAddOfficeTask}
+                                    onToggleTask={handleToggleOfficeTask}
+                                    onDeleteTask={handleDeleteOfficeTask}
+                                    fullView={true}
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     {view === 'settings' && (
                         <SettingsView 
                             providers={providers}
@@ -929,6 +1143,9 @@ const App: React.FC = () => {
                             operationTypes={operationTypes}
                             onAddOperationType={handleAddOperationType}
                             onDeleteOperationType={handleDeleteOperationType}
+                            appointmentStatuses={appointmentStatuses}
+                            onAddAppointmentStatus={handleAddAppointmentStatus}
+                            onDeleteAppointmentStatus={handleDeleteAppointmentStatus}
                         />
                     )}
                 </main>
@@ -954,7 +1171,18 @@ const App: React.FC = () => {
                 onAddProvider={handleAddProvider}
                 isSaving={isSaving}
                 isSuccess={isContractSuccess}
-                operationTypes={operationTypes} // Pass dynamic operation types
+                operationTypes={operationTypes}
+            />
+
+            <AppointmentFormModal 
+                isOpen={isAppointmentModalOpen}
+                onClose={() => setIsAppointmentModalOpen(false)}
+                onSave={handleSaveAppointment}
+                appointment={editingAppointment}
+                providers={providers}
+                statuses={appointmentStatuses}
+                isSaving={isSaving}
+                isSuccess={isAppointmentSuccess}
             />
 
             <ConfirmationModal

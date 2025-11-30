@@ -1,5 +1,7 @@
+
 import { initializeApp } from "firebase/app";
 import { getFirestore, initializeFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // Configurazione dell'app web da Firebase.
 const firebaseConfig = {
@@ -19,3 +21,6 @@ const app = initializeApp(firebaseConfig);
 export const db = initializeFirestore(app, {
   ignoreUndefinedProperties: true
 });
+
+// Esporta l'istanza di Storage
+export const storage = getStorage(app);

@@ -9,10 +9,12 @@ import {
     query,
     where,
     getDoc,
-    setDoc
+    setDoc,
+    orderBy
 } from "firebase/firestore";
-import { db } from './firebase';
-import type { Client, Contract } from '../types';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { db, storage } from './firebase';
+import type { Client, Contract, Appointment, OfficeTask, ClientDocument } from '../types';
 
 const initialProviders: string[] = [
   'Enel', 'Duferco', 'Edison', 'Lenergia', 'A2A', 
@@ -23,8 +25,38 @@ const initialOperationTypes: string[] = [
     'Nuova Attivazione', 'Switch', 'Voltura', 'Subentro'
 ];
 
+const initialAppointmentStatuses: string[] = [
+    'Da Fare', 'Completato', 'Annullato'
+];
+
 const clientsCollection = collection(db, "clients");
 const contractsCollection = collection(db, "contracts");
+const appointmentsCollection = collection(db, "appointments");
+const officeTasksCollection = collection(db, "office_tasks");
+
+// --- Storage Functions ---
+
+export const uploadClientDocument = async (file: File): Promise<ClientDocument> => {
+    // Crea un path unico: client-documents/TIMESTAMP_FILENAME
+    const path = `client-documents/${Date.now()}_${file.name}`;
+    const storageRef = ref(storage, path);
+    
+    await uploadBytes(storageRef, file);
+    const url = await getDownloadURL(storageRef);
+    
+    return {
+        name: file.name,
+        url: url,
+        type: file.type,
+        uploadedAt: new Date().toISOString(),
+        path: path
+    };
+};
+
+export const deleteClientDocument = async (path: string): Promise<void> => {
+    const storageRef = ref(storage, path);
+    await deleteObject(storageRef);
+};
 
 // --- Clients ---
 
@@ -57,6 +89,9 @@ export const deleteClient = async (clientId: string): Promise<void> => {
     const deletePromises = contractsSnapshot.docs.map(doc => deleteDoc(doc.ref));
     await Promise.all(deletePromises);
     
+    // NOTA: I file su Storage non vengono eliminati automaticamente qui per sicurezza,
+    // ma idealmente si dovrebbero iterare i documenti del client ed eliminarli.
+    
     // Poi elimina il cliente
     await deleteDoc(doc(db, "clients", clientId));
 };
@@ -83,6 +118,63 @@ export const updateContract = async (updatedContract: Contract): Promise<Contrac
 export const deleteContract = async (contractId: string): Promise<void> => {
     await deleteDoc(doc(db, "contracts", contractId));
 };
+
+// --- Appointments (Appuntamenti) ---
+
+export const getAllAppointments = async (): Promise<Appointment[]> => {
+    // Ordina per data, se possibile. Altrimenti ordiniamo lato client.
+    const querySnapshot = await getDocs(appointmentsCollection);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment));
+};
+
+export const createAppointment = async (apptData: Omit<Appointment, 'id' | 'createdAt'>): Promise<Appointment> => {
+    const newAppt = {
+        ...apptData,
+        createdAt: new Date().toISOString()
+    };
+    const docRef = await addDoc(appointmentsCollection, newAppt);
+    return { id: docRef.id, ...newAppt };
+};
+
+export const updateAppointment = async (updatedAppt: Appointment): Promise<Appointment> => {
+    const { id, ...data } = updatedAppt;
+    const apptDoc = doc(db, "appointments", id);
+    await updateDoc(apptDoc, data);
+    return updatedAppt;
+};
+
+export const deleteAppointment = async (apptId: string): Promise<void> => {
+    await deleteDoc(doc(db, "appointments", apptId));
+};
+
+// --- Office Tasks (Attività Ufficio) ---
+
+export const getAllOfficeTasks = async (): Promise<OfficeTask[]> => {
+    const querySnapshot = await getDocs(officeTasksCollection);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as OfficeTask));
+};
+
+export const createOfficeTask = async (title: string): Promise<OfficeTask> => {
+    const newTask = {
+        title,
+        isCompleted: false,
+        createdAt: new Date().toISOString()
+    };
+    const docRef = await addDoc(officeTasksCollection, newTask);
+    return { id: docRef.id, ...newTask };
+};
+
+export const updateOfficeTask = async (task: OfficeTask): Promise<OfficeTask> => {
+    const { id, ...data } = task;
+    const taskDoc = doc(db, "office_tasks", id);
+    await updateDoc(taskDoc, data);
+    return task;
+};
+
+export const deleteOfficeTask = async (taskId: string): Promise<void> => {
+    await deleteDoc(doc(db, "office_tasks", taskId));
+};
+
 
 // --- Providers ---
 
@@ -158,6 +250,43 @@ export const deleteOperationType = async (typeToDelete: string): Promise<string[
         return updatedTypes;
     }
     return types;
+};
+
+// --- Appointment Statuses (Da Fare, Completato...) ---
+
+const appointmentStatusesDocRef = doc(db, 'config', 'appointment_statuses');
+
+export const getAllAppointmentStatuses = async (): Promise<string[]> => {
+    const docSnap = await getDoc(appointmentStatusesDocRef);
+    if (docSnap.exists() && docSnap.data().names) {
+        return docSnap.data().names;
+    } else {
+        await setDoc(appointmentStatusesDocRef, { names: initialAppointmentStatuses });
+        return initialAppointmentStatuses;
+    }
+};
+
+export const addAppointmentStatus = async (newStatus: string): Promise<string[]> => {
+    const statuses = await getAllAppointmentStatuses();
+    const trimmedStatus = newStatus.trim();
+    if (trimmedStatus && !statuses.some(s => s.toLowerCase() === trimmedStatus.toLowerCase())) {
+        // Keep "Da Fare" generally first if possible, but simplest is just append
+        const updatedStatuses = [...statuses, trimmedStatus]; 
+        await setDoc(appointmentStatusesDocRef, { names: updatedStatuses });
+        return updatedStatuses;
+    }
+    return statuses;
+};
+
+export const deleteAppointmentStatus = async (statusToDelete: string): Promise<string[]> => {
+    const statuses = await getAllAppointmentStatuses();
+    const updatedStatuses = statuses.filter(s => s !== statusToDelete);
+    
+    if (statuses.length !== updatedStatuses.length) {
+        await setDoc(appointmentStatusesDocRef, { names: updatedStatuses });
+        return updatedStatuses;
+    }
+    return statuses;
 };
 
 

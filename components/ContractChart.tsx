@@ -1,5 +1,4 @@
 
-
 import React, { useMemo } from 'react';
 import type { Contract } from '../types';
 
@@ -74,11 +73,11 @@ const ContractChart: React.FC<ContractChartProps> = ({ contracts, selectedYear }
     : `Totale nuovi contratti per l'anno ${selectedYear}: `;
 
   return (
-    <>
+    <div className="pb-12">
       <div className="text-sm text-slate-500 dark:text-slate-400 mb-6">
         {summaryText}<span className="font-bold text-slate-700 dark:text-slate-200">{totalContractsForPeriod}</span>
       </div>
-      <div className="flex justify-around items-end h-64 space-x-2 text-center pb-6" aria-label={selectedYear === 'all' ? "Grafico a barre dei contratti per anno" : `Grafico a barre dei nuovi contratti per l'anno ${selectedYear}`}>
+      <div className="flex justify-around items-end h-64 space-x-2 text-center border-b border-slate-200 dark:border-slate-700" aria-label={selectedYear === 'all' ? "Grafico a barre dei contratti per anno" : `Grafico a barre dei nuovi contratti per l'anno ${selectedYear}`}>
         {chartData.length > 0 ? (
           chartData.map(({ label, count }) => (
             <div key={`${label}-${selectedYear}`} className="flex flex-col items-center justify-end w-full h-full group relative">
@@ -95,8 +94,11 @@ const ContractChart: React.FC<ContractChartProps> = ({ contracts, selectedYear }
                     <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
                  </div>
               </div>
-              <div className={`mt-3 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase absolute -bottom-6 ${selectedYear === 'all' ? '' : '[writing-mode:vertical-rl] [transform:rotate(180deg)]'}`}>
-                {label}
+              {/* Label Centrata e Distanziata */}
+              <div className="absolute top-full left-0 w-full flex justify-center mt-4">
+                  <span className={`text-xs font-medium text-slate-500 dark:text-slate-400 uppercase ${selectedYear === 'all' ? '' : '[writing-mode:vertical-rl] [transform:rotate(180deg)]'}`}>
+                    {label}
+                  </span>
               </div>
             </div>
           ))
@@ -106,7 +108,7 @@ const ContractChart: React.FC<ContractChartProps> = ({ contracts, selectedYear }
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 };
 
