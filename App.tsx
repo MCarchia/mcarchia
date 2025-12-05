@@ -14,6 +14,7 @@ import SearchModal from './components/SearchModal';
 import GlobalSearchBar from './components/GlobalSearchBar';
 import { MenuIcon, SearchIcon, EyeIcon, EyeOffIcon, FilterIcon, TrashIcon, AdjustmentsIcon } from './components/Icons';
 import Login from './components/Login';
+import BillSplitterView from './components/BillSplitterView';
 
 // Dashboard widgets
 import ClientChart from './components/ClientChart';
@@ -252,7 +253,7 @@ const App: React.FC = () => {
     const [appointmentStatuses, setAppointmentStatuses] = useState<string[]>([]);
 
     const [loading, setLoading] = useState(true);
-    const [view, setView] = useState<'dashboard' | 'clients' | 'contracts' | 'appointments' | 'office-tasks' | 'settings'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'clients' | 'contracts' | 'appointments' | 'office-tasks' | 'bill-splitter' | 'settings'>('dashboard');
     
     // Initial sidebar state: open on desktop (>= 1024px), closed on mobile
     const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -1242,6 +1243,10 @@ const App: React.FC = () => {
                                 />
                             </div>
                         </div>
+                    )}
+
+                    {view === 'bill-splitter' && (
+                        <BillSplitterView />
                     )}
 
                     {view === 'settings' && (
