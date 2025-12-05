@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { CalculatorIcon, InformationCircleIcon, PlusIcon, TrashIcon, UserGroupIcon, ExclamationIcon, CheckCircleIcon, DocumentDownloadIcon, MailIcon, WhatsAppIcon } from './Icons';
+import { CalculatorIcon, PlusIcon, TrashIcon, UserGroupIcon, ExclamationIcon, CheckCircleIcon, DocumentDownloadIcon, MailIcon, WhatsAppIcon, LightningBoltIcon, FireIcon } from './Icons';
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
 
@@ -11,7 +11,10 @@ interface Participant {
     result: number;
 }
 
+type UtilityType = 'electricity' | 'gas';
+
 const BillSplitterView: React.FC = () => {
+    const [utilityType, setUtilityType] = useState<UtilityType>('electricity');
     const [method, setMethod] = useState<'simple' | 'advanced'>('advanced');
     const [totalBill, setTotalBill] = useState<number | ''>('');
     const [totalConsumption, setTotalConsumption] = useState<number | ''>('');
@@ -31,6 +34,25 @@ const BillSplitterView: React.FC = () => {
     const [variableRate, setVariableRate] = useState<number>(0);
     const [fixedPerPerson, setFixedPerPerson] = useState<number>(0);
     const [totalFixedCalculated, setTotalFixedCalculated] = useState<number>(0);
+
+    // --- Configuration based on Utility Type ---
+    const uiConfig = useMemo(() => {
+        return utilityType === 'electricity' ? {
+            label: 'Energia Elettrica',
+            unit: 'kW',
+            powerLabel: 'Quota Potenza',
+            themeColor: 'emerald', // Per classi dinamiche tailwind (bg-emerald-500, etc)
+            icon: <LightningBoltIcon className="h-6 w-6 text-white" />,
+            pdfColor: [46, 204, 113] // Verde smeraldo per PDF
+        } : {
+            label: 'Gas Naturale',
+            unit: 'Smc',
+            powerLabel: 'Quota Trasporto/Gestione',
+            themeColor: 'orange', // Per classi dinamiche tailwind (bg-orange-500, etc)
+            icon: <FireIcon className="h-6 w-6 text-white" />,
+            pdfColor: [230, 126, 34] // Arancione per PDF
+        };
+    }, [utilityType]);
 
     // --- Actions ---
 
@@ -75,14 +97,16 @@ const BillSplitterView: React.FC = () => {
 
     const handleExportPDF = (returnBlob: boolean = false) => {
         const doc = new jsPDF();
-        const primaryColor = [41, 128, 185]; // Bel blu professionale
+        
+        // Colors from config or default dark blue for professional look
+        const primaryColor = uiConfig.pdfColor; 
         const darkColor = [44, 62, 80]; // Grigio scuro/Blu notte
 
         // --- Intestazione ---
         doc.setFontSize(22);
         doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
         doc.setFont("helvetica", "bold");
-        doc.text("Prospetto Ripartizione Costi", 14, 20);
+        doc.text(`Ripartizione Costi - ${uiConfig.label}`, 14, 20);
         
         // Data
         doc.setFontSize(10);
@@ -91,25 +115,21 @@ const BillSplitterView: React.FC = () => {
         const dateStr = new Date().toLocaleDateString('it-IT');
         doc.text(`Data: ${dateStr}`, 196, 20, { align: 'right' });
 
-        // Linea separatrice spessa
+        // Linea separatrice spessa colorata
         doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.setLineWidth(1);
         doc.line(14, 25, 196, 25);
 
         // --- Dati Generali (Box Grigio) - VERTICALE ---
         
-        // Calcolo altezza dinamica box in base al metodo e ai partecipanti (per la lista consumi)
-        // Base height per header + metodo + importo + consumo totale row
+        // Calcolo altezza dinamica box
         let contentHeight = 35; 
-        
-        // Spazio per la lista consumi inquilini
         contentHeight += (participants.length * 5); 
 
-        // Spazio per spese fisse e dettagli (solo advanced)
         if (method === 'advanced') {
             contentHeight += 25; 
         } else {
-            contentHeight += 5; // Padding bottom
+            contentHeight += 5; 
         }
 
         const boxStartY = 30;
@@ -146,28 +166,26 @@ const BillSplitterView: React.FC = () => {
         currentY += lineHeight;
 
         // 3. Consumo Totale
-        const consStr = totalConsumption ? totalConsumption.toString() + ' kW' : '0 kW';
+        const consStr = totalConsumption ? `${totalConsumption} ${uiConfig.unit}` : `0 ${uiConfig.unit}`;
         doc.setFont("helvetica", "normal");
         doc.text("Consumo Totale:", 20, currentY);
         doc.setFont("helvetica", "bold");
         doc.text(consStr, 80, currentY);
-        currentY += 5; // Spazio prima dei dettagli consumi
+        currentY += 5; 
 
         // 3a. Ripartizione Consumi (SOLO VALORI)
         doc.setFontSize(9);
-        doc.setTextColor(120, 128, 140); // Grigio più chiaro
+        doc.setTextColor(120, 128, 140); 
         
         participants.forEach(p => {
-            const pCons = p.consumption ? `${p.consumption} kW` : '0 kW';
-            // Solo il consumo, senza nome
+            const pCons = p.consumption ? `${p.consumption} ${uiConfig.unit}` : `0 ${uiConfig.unit}`;
             doc.text(`- ${pCons}`, 25, currentY);
             currentY += 5;
         });
 
-        // Reset font e colore e aggiungi spazio
         doc.setFontSize(10);
         doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
-        currentY += 2; // Extra spacer
+        currentY += 2; 
 
         // 4. Spese Fisse (solo se advanced)
         if (method === 'advanced') {
@@ -176,24 +194,23 @@ const BillSplitterView: React.FC = () => {
             doc.text("Spese Fisse Totali:", 20, currentY);
             doc.setFont("helvetica", "bold");
             doc.text(fixedStr, 80, currentY);
-            currentY += 6; // Spazio prima dei dettagli
+            currentY += 6; 
 
             // Ripartizione spese fisse in piccolo
             doc.setFontSize(9);
-            doc.setTextColor(120, 128, 140); // Grigio più chiaro
+            doc.setTextColor(120, 128, 140); 
 
             const fStr = fixedFee ? Number(fixedFee).toLocaleString('it-IT', {style:'currency', currency:'EUR'}) : '€ 0,00';
             doc.text(`- Quota Fissa: ${fStr}`, 25, currentY);
             currentY += 5;
 
             const pStr = powerFee ? Number(powerFee).toLocaleString('it-IT', {style:'currency', currency:'EUR'}) : '€ 0,00';
-            doc.text(`- Quota Potenza: ${pStr}`, 25, currentY);
+            doc.text(`- ${uiConfig.powerLabel}: ${pStr}`, 25, currentY);
             currentY += 5;
 
             const oStr = otherFee ? Number(otherFee).toLocaleString('it-IT', {style:'currency', currency:'EUR'}) : '€ 0,00';
             doc.text(`- Altre Partite: ${oStr}`, 25, currentY);
             
-            // Reset font e colore per il resto
             doc.setFontSize(10);
             doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
         }
@@ -201,15 +218,13 @@ const BillSplitterView: React.FC = () => {
         // --- Tabella ---
         const tableData = participants.map(p => [
             p.name || 'Inquilino',
-            `${p.consumption || '0'} kW`, // Aggiunta unità kW
+            `${p.consumption || '0'} ${uiConfig.unit}`, 
             p.result.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
         ]);
 
-        // Calcolo totali per il footer
         const currentSumConsumptions = participants.reduce((sum, p) => sum + (Number(p.consumption) || 0), 0);
         const currentTotalCalculated = participants.reduce((sum, p) => sum + p.result, 0);
 
-        // Posizione di partenza tabella dinamica (subito dopo il box grigio + margine)
         const tableStartY = boxStartY + contentHeight + 10;
 
         (autoTable as any)(doc, {
@@ -218,7 +233,7 @@ const BillSplitterView: React.FC = () => {
             body: tableData,
             foot: [[
                 'TOTALI', 
-                `${currentSumConsumptions} kW`, 
+                `${currentSumConsumptions} ${uiConfig.unit}`, 
                 currentTotalCalculated.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
             ]],
             theme: 'striped',
@@ -229,7 +244,7 @@ const BillSplitterView: React.FC = () => {
                 halign: 'left'
             },
             footStyles: {
-                fillColor: [240, 240, 240], // Light gray footer
+                fillColor: [240, 240, 240], 
                 textColor: darkColor,
                 fontStyle: 'bold',
                 fontSize: 11
@@ -239,28 +254,24 @@ const BillSplitterView: React.FC = () => {
                 cellPadding: 4,
                 valign: 'middle'
             },
-            // Column styles apply to HEAD, BODY, and FOOT rows
-            // SET ALL COLUMNS TO LEFT ALIGNMENT
             columnStyles: {
-                0: { halign: 'left' },   // Name aligned left
-                1: { halign: 'left' },   // Consumption aligned left
-                2: { halign: 'left' }    // Amount aligned left
+                0: { halign: 'left' },   
+                1: { halign: 'left' },   
+                2: { halign: 'left' }    
             },
             alternateRowStyles: {
                 fillColor: [248, 250, 252]
             }
         });
 
-        // --- Footer Professionale (Bottom of Page) ---
+        // --- Footer ---
         const pageHeight = doc.internal.pageSize.height;
         const footerY = pageHeight - 30;
 
-        // Linea separatrice sottile
         doc.setDrawColor(200);
         doc.setLineWidth(0.2);
         doc.line(14, footerY, 196, footerY);
 
-        // Blocco Firma
         doc.setFontSize(10);
         doc.setTextColor(60); 
         doc.setFont("helvetica", "bold");
@@ -280,33 +291,23 @@ const BillSplitterView: React.FC = () => {
 
     const handleShare = (platform: 'whatsapp' | 'email') => {
         if (!totalBill || participants.length === 0) return;
-
-        // 1. Scarica il PDF per l'utente (così ce l'ha da allegare)
         handleExportPDF();
-
-        // 2. Prepara il messaggio
         const text = `Ciao,\necco il prospetto di ripartizione della bolletta (Totale: ${Number(totalBill).toLocaleString('it-IT', {style:'currency', currency:'EUR'})}).\nHo scaricato il PDF con tutti i dettagli, te lo allego qui sotto.`;
-        
-        // 3. Apri l'app
         if (platform === 'whatsapp') {
             window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         } else {
             window.open(`mailto:?subject=Ripartizione Bolletta&body=${encodeURIComponent(text)}`, '_self');
         }
-
-        // 4. Avviso UI
         alert("Il PDF è stato scaricato sul tuo dispositivo.\n\nOra si aprirà l'app scelta: ricordati di ALLEGARE manualmente il file PDF appena scaricato al messaggio!");
     };
 
     // --- Calculations ---
 
-    // Sum of inputs
     const sumConsumptions = useMemo(() => {
         return participants.reduce((sum, p) => sum + (Number(p.consumption) || 0), 0);
     }, [participants]);
 
     const consumptionDiff = (Number(totalConsumption) || 0) - sumConsumptions;
-    // Tolerance for float math
     const isConsumptionMatch = Math.abs(consumptionDiff) < 0.1;
     const isConsumptionOver = consumptionDiff < -0.1;
     
@@ -316,9 +317,8 @@ const BillSplitterView: React.FC = () => {
 
     useEffect(() => {
         const bill = Number(totalBill) || 0;
-        const totCons = Number(totalConsumption) || 1; // Prevent div/0
+        const totCons = Number(totalConsumption) || 1; 
         
-        // Calcolo somma spese fisse
         const fFee = Number(fixedFee) || 0;
         const pFee = Number(powerFee) || 0;
         const oFee = Number(otherFee) || 0;
@@ -333,34 +333,21 @@ const BillSplitterView: React.FC = () => {
         let uCost = 0;
 
         if (method === 'simple') {
-            // Metodo 1: Proporzionale Puro
-            // Costo Unitario = Totale Bolletta / Totale Consumo
             uCost = bill / totCons;
-            
             setUnitCost(uCost);
             setFixedPerPerson(0);
             setVariableRate(0);
-
             setParticipants(prev => prev.map(p => ({
                 ...p,
                 result: (Number(p.consumption) || 0) * uCost
             })));
-
         } else {
-            // Metodo 2: Quote Fisse + Variabili
-            // 1. Dividi i costi fissi totali in parti uguali
             fPerPerson = totalFixed / count;
-            
-            // 2. Calcola il costo dell'energia pura (variabile)
             const variableTotal = bill - totalFixed;
-            
-            // 3. Calcola il tasso variabile al kWh/Smc
             vRate = variableTotal / totCons;
-
             setFixedPerPerson(fPerPerson);
             setVariableRate(vRate);
             setUnitCost(0);
-
             setParticipants(prev => prev.map(p => ({
                 ...p,
                 result: fPerPerson + ((Number(p.consumption) || 0) * vRate)
@@ -371,13 +358,42 @@ const BillSplitterView: React.FC = () => {
 
     return (
         <div className="animate-fade-in p-2 md:p-6 max-w-6xl mx-auto flex flex-col">
+            
+            {/* UTILITY TYPE SELECTOR */}
+            <div className="mb-8 flex justify-center">
+                <div className="bg-white dark:bg-slate-800 p-1 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 flex">
+                    <button
+                        onClick={() => setUtilityType('electricity')}
+                        className={`flex items-center px-6 py-3 rounded-lg font-bold transition-all duration-300 ${
+                            utilityType === 'electricity' 
+                                ? 'bg-emerald-500 text-white shadow-lg scale-105' 
+                                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                    >
+                        <LightningBoltIcon className={`h-5 w-5 mr-2 ${utilityType === 'electricity' ? 'text-white' : 'text-slate-400'}`} />
+                        Energia Elettrica
+                    </button>
+                    <button
+                        onClick={() => setUtilityType('gas')}
+                        className={`flex items-center px-6 py-3 rounded-lg font-bold transition-all duration-300 ${
+                            utilityType === 'gas' 
+                                ? 'bg-orange-500 text-white shadow-lg scale-105' 
+                                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                    >
+                        <FireIcon className={`h-5 w-5 mr-2 ${utilityType === 'gas' ? 'text-white' : 'text-slate-400'}`} />
+                        Gas Naturale
+                    </button>
+                </div>
+            </div>
+
             <div className="flex items-center mb-6 space-x-3">
-                <div className="bg-emerald-500 p-2 rounded-lg">
+                <div className={`p-2 rounded-lg transition-colors duration-300 bg-${uiConfig.themeColor}-500`}>
                     <CalculatorIcon className="h-8 w-8 text-white" />
                 </div>
                 <div>
                     <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Calcolatrice Bollette</h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm">Ripartizione costi avanzata per N partecipanti</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">Ripartizione costi {uiConfig.label}</p>
                 </div>
             </div>
 
@@ -390,22 +406,22 @@ const BillSplitterView: React.FC = () => {
                     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6">
                         <h3 className="font-semibold text-slate-700 dark:text-slate-200 mb-4">Metodo di Calcolo</h3>
                         <div className="flex flex-col space-y-3">
-                            <label className={`cursor-pointer border rounded-lg p-3 transition-all flex items-center ${method === 'advanced' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 ring-1 ring-emerald-500' : 'border-slate-200 dark:border-slate-700'}`}>
+                            <label className={`cursor-pointer border rounded-lg p-3 transition-all flex items-center ${method === 'advanced' ? `border-${uiConfig.themeColor}-500 bg-${uiConfig.themeColor}-50 dark:bg-${uiConfig.themeColor}-900/20 ring-1 ring-${uiConfig.themeColor}-500` : 'border-slate-200 dark:border-slate-700'}`}>
                                 <input type="radio" name="method" value="advanced" checked={method === 'advanced'} onChange={() => setMethod('advanced')} className="sr-only" />
                                 <div className="flex-1">
                                     <div className="font-bold text-slate-800 dark:text-slate-100 text-sm">Quote Fisse + Variabili (Consigliato)</div>
                                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">Costi fissi divisi in parti uguali, consumo in base alla lettura.</div>
                                 </div>
-                                {method === 'advanced' && <CheckCircleIcon className="h-5 w-5 text-emerald-500" />}
+                                {method === 'advanced' && <CheckCircleIcon className={`h-5 w-5 text-${uiConfig.themeColor}-500`} />}
                             </label>
 
-                            <label className={`cursor-pointer border rounded-lg p-3 transition-all flex items-center ${method === 'simple' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 ring-1 ring-emerald-500' : 'border-slate-200 dark:border-slate-700'}`}>
+                            <label className={`cursor-pointer border rounded-lg p-3 transition-all flex items-center ${method === 'simple' ? `border-${uiConfig.themeColor}-500 bg-${uiConfig.themeColor}-50 dark:bg-${uiConfig.themeColor}-900/20 ring-1 ring-${uiConfig.themeColor}-500` : 'border-slate-200 dark:border-slate-700'}`}>
                                 <input type="radio" name="method" value="simple" checked={method === 'simple'} onChange={() => setMethod('simple')} className="sr-only" />
                                 <div className="flex-1">
                                     <div className="font-bold text-slate-800 dark:text-slate-100 text-sm">Semplice (Proporzionale)</div>
                                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">Tutto diviso in base al consumo. Penalizza chi consuma di più.</div>
                                 </div>
-                                {method === 'simple' && <CheckCircleIcon className="h-5 w-5 text-emerald-500" />}
+                                {method === 'simple' && <CheckCircleIcon className={`h-5 w-5 text-${uiConfig.themeColor}-500`} />}
                             </label>
                         </div>
                     </div>
@@ -420,18 +436,18 @@ const BillSplitterView: React.FC = () => {
                                 type="number" 
                                 value={totalBill} 
                                 onChange={e => setTotalBill(e.target.value === '' ? '' : Number(e.target.value))} 
-                                className="w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-emerald-500 focus:border-emerald-500" 
+                                className={`w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-${uiConfig.themeColor}-500 focus:border-${uiConfig.themeColor}-500`}
                                 placeholder="Es. 150.00"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Consumo Totale Fatturato</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Consumo Totale Fatturato ({uiConfig.unit})</label>
                             <input 
                                 type="number" 
                                 value={totalConsumption} 
                                 onChange={e => setTotalConsumption(e.target.value === '' ? '' : Number(e.target.value))} 
-                                className="w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-emerald-500 focus:border-emerald-500" 
-                                placeholder="Es. 500 kWh"
+                                className={`w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-${uiConfig.themeColor}-500 focus:border-${uiConfig.themeColor}-500`}
+                                placeholder={`Es. 500 ${uiConfig.unit}`}
                             />
                         </div>
 
@@ -447,17 +463,17 @@ const BillSplitterView: React.FC = () => {
                                             type="number" 
                                             value={fixedFee} 
                                             onChange={e => setFixedFee(e.target.value === '' ? '' : Number(e.target.value))} 
-                                            className="w-full p-1.5 border rounded text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-emerald-500" 
+                                            className={`w-full p-1.5 border rounded text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-${uiConfig.themeColor}-500`}
                                             placeholder="Es. 10.00"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Quota Potenza</label>
+                                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{uiConfig.powerLabel}</label>
                                         <input 
                                             type="number" 
                                             value={powerFee} 
                                             onChange={e => setPowerFee(e.target.value === '' ? '' : Number(e.target.value))} 
-                                            className="w-full p-1.5 border rounded text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-emerald-500" 
+                                            className={`w-full p-1.5 border rounded text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-${uiConfig.themeColor}-500`}
                                             placeholder="Es. 5.50"
                                         />
                                     </div>
@@ -467,8 +483,8 @@ const BillSplitterView: React.FC = () => {
                                             type="number" 
                                             value={otherFee} 
                                             onChange={e => setOtherFee(e.target.value === '' ? '' : Number(e.target.value))} 
-                                            className="w-full p-1.5 border rounded text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-emerald-500" 
-                                            placeholder="Es. 2.00 (o lasciare vuoto)"
+                                            className={`w-full p-1.5 border rounded text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-${uiConfig.themeColor}-500`}
+                                            placeholder="Es. 2.00"
                                         />
                                     </div>
                                 </div>
@@ -497,7 +513,7 @@ const BillSplitterView: React.FC = () => {
                             </h3>
                             <button 
                                 onClick={addParticipant}
-                                className="flex items-center text-sm font-bold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 bg-sky-50 dark:bg-sky-900/30 px-3 py-1.5 rounded-full transition-colors"
+                                className={`flex items-center text-sm font-bold text-${uiConfig.themeColor}-600 hover:text-${uiConfig.themeColor}-700 bg-${uiConfig.themeColor}-50 dark:bg-${uiConfig.themeColor}-900/30 px-3 py-1.5 rounded-full transition-colors`}
                             >
                                 <PlusIcon className="h-4 w-4 mr-1" />
                                 Aggiungi
@@ -508,7 +524,7 @@ const BillSplitterView: React.FC = () => {
                         {totalConsumption !== '' && (
                             <div className={`px-6 py-2 text-xs font-semibold flex justify-between items-center transition-colors ${
                                 isConsumptionMatch 
-                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300' 
+                                    ? `bg-${uiConfig.themeColor}-100 text-${uiConfig.themeColor}-800 dark:bg-${uiConfig.themeColor}-900/50 dark:text-${uiConfig.themeColor}-300`
                                     : isConsumptionOver 
                                         ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
                                         : 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300'
@@ -520,12 +536,12 @@ const BillSplitterView: React.FC = () => {
                                     {isConsumptionMatch 
                                         ? "I consumi inseriti corrispondono al totale." 
                                         : isConsumptionOver 
-                                            ? `Attenzione: Hai inserito ${Math.abs(consumptionDiff).toFixed(2)} unità in più del totale!`
-                                            : `Mancano ancora ${consumptionDiff.toFixed(2)} unità da assegnare.`
+                                            ? `Attenzione: Hai inserito ${Math.abs(consumptionDiff).toFixed(2)} ${uiConfig.unit} in più del totale!`
+                                            : `Mancano ancora ${consumptionDiff.toFixed(2)} ${uiConfig.unit} da assegnare.`
                                     }
                                 </div>
                                 <div>
-                                    {sumConsumptions} / {totalConsumption}
+                                    {sumConsumptions} / {totalConsumption} {uiConfig.unit}
                                 </div>
                             </div>
                         )}
@@ -535,7 +551,7 @@ const BillSplitterView: React.FC = () => {
                                 <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
                                     <tr>
                                         <th className="px-6 py-3 w-1/3">Nome</th>
-                                        <th className="px-6 py-3 w-1/3">Consumo</th>
+                                        <th className="px-6 py-3 w-1/3">Consumo ({uiConfig.unit})</th>
                                         <th className="px-6 py-3 text-right">Da Pagare</th>
                                         <th className="px-6 py-3 w-10"></th>
                                     </tr>
@@ -548,7 +564,7 @@ const BillSplitterView: React.FC = () => {
                                                     type="text" 
                                                     value={p.name} 
                                                     onChange={e => updateParticipant(p.id, 'name', e.target.value)} 
-                                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded px-2 py-1 text-slate-800 dark:text-slate-200 focus:ring-emerald-500 focus:border-emerald-500"
+                                                    className={`w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded px-2 py-1 text-slate-800 dark:text-slate-200 focus:ring-${uiConfig.themeColor}-500 focus:border-${uiConfig.themeColor}-500`}
                                                     placeholder="Nome inquilino..."
                                                 />
                                             </td>
@@ -557,11 +573,11 @@ const BillSplitterView: React.FC = () => {
                                                     type="number" 
                                                     value={p.consumption} 
                                                     onChange={e => updateParticipant(p.id, 'consumption', e.target.value === '' ? '' : Number(e.target.value))} 
-                                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded px-2 py-1 text-slate-800 dark:text-slate-200 focus:ring-emerald-500 focus:border-emerald-500"
+                                                    className={`w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded px-2 py-1 text-slate-800 dark:text-slate-200 focus:ring-${uiConfig.themeColor}-500 focus:border-${uiConfig.themeColor}-500`}
                                                     placeholder="0"
                                                 />
                                             </td>
-                                            <td className="px-6 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400 text-lg">
+                                            <td className={`px-6 py-3 text-right font-bold text-${uiConfig.themeColor}-600 dark:text-${uiConfig.themeColor}-400 text-lg`}>
                                                 {p.result.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}
                                             </td>
                                             <td className="px-6 py-3 text-right">
@@ -593,17 +609,17 @@ const BillSplitterView: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <div className="text-xs opacity-60">Quota Fissa (a testa)</div>
-                                        <div className="text-lg font-mono text-emerald-400">{fixedPerPerson.toLocaleString('it-IT', {style:'currency', currency:'EUR'})}</div>
+                                        <div className={`text-lg font-mono text-${uiConfig.themeColor}-400`}>{fixedPerPerson.toLocaleString('it-IT', {style:'currency', currency:'EUR'})}</div>
                                     </div>
                                     <div>
                                         <div className="text-xs opacity-60">Costo Variabile</div>
-                                        <div className="text-lg font-mono text-sky-400">{variableRate.toFixed(4)} €/unità</div>
+                                        <div className="text-lg font-mono text-sky-400">{variableRate.toFixed(4)} €/{uiConfig.unit}</div>
                                     </div>
                                 </div>
                             ) : (
                                 <div>
                                     <div className="text-xs opacity-60">Costo Medio Unitario</div>
-                                    <div className="text-lg font-mono text-emerald-400">{unitCost.toFixed(4)} €/unità</div>
+                                    <div className={`text-lg font-mono text-${uiConfig.themeColor}-400`}>{unitCost.toFixed(4)} €/{uiConfig.unit}</div>
                                 </div>
                             )}
                         </div>
@@ -615,7 +631,7 @@ const BillSplitterView: React.FC = () => {
                         <div className="text-center w-full md:w-auto">
                              <h4 className="text-white font-bold uppercase text-xs tracking-wider opacity-70 mb-1">Quadratura Consumi</h4>
                              <div className={`text-2xl font-bold font-mono ${isConsumptionMatch ? 'text-green-400' : 'text-amber-400'}`}>
-                                {sumConsumptions} <span className="text-sm text-slate-400 font-sans font-normal">/ {totalConsumption || 0}</span>
+                                {sumConsumptions} <span className="text-sm text-slate-400 font-sans font-normal">/ {totalConsumption || 0} {uiConfig.unit}</span>
                              </div>
                              <div className="text-xs opacity-50 mt-1">Inseriti / Totale Bolletta</div>
                         </div>
